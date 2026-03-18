@@ -1,0 +1,8 @@
+DROP YOUR GROWW / CAMS CSV FILES HERE
+======================================
+1. Export CSV from Groww (groww.in > Portfolio > Download)
+   OR from CAMS (camsonline.com > Statement)
+2. Copy the CSV file into THIS folder
+3. Run start.bat
+4. Done — holdings.json updates automatically
+5. Refresh browser → http://localhost:8080

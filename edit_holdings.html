@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Holdings Editor — Market Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#07090e;--bg2:#0d1117;--bg3:#131920;--border:#1e2d3d;--accent:#00d4aa;--blue:#0096ff;--red:#ff4d6d;--yellow:#ffd166;--text:#c9d1d9;--muted:#4a5568}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;min-height:100vh;padding:20px}
+.hdr{display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.logo{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#fff}.logo span{color:var(--accent)}
+.subtitle{font-size:11px;color:var(--muted)}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px}
+.tab{padding:10px 20px;cursor:pointer;font-size:11px;font-weight:500;letter-spacing:1px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid transparent;transition:all .2s;user-select:none}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tc{display:none}.tc.active{display:block}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px}
+.ct{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:16px}
+label{display:block;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+input,select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:9px 12px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--accent)}
+input::placeholder{color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}
+.btn{border:none;border-radius:6px;padding:10px 20px;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;transition:all .2s;letter-spacing:.5px}
+.btn-primary{background:var(--accent);color:#000}.btn-primary:hover{background:#00f5c4}
+.btn-secondary{background:transparent;border:1px solid var(--border);color:var(--muted)}.btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
+.btn-danger{background:transparent;border:1px solid var(--red);color:var(--red)}.btn-danger:hover{background:var(--red);color:#fff}
+.btn-sm{padding:5px 11px;font-size:11px}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{text-align:left;padding:8px 10px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);font-weight:500}
+.tbl td{padding:9px 10px;border-bottom:1px solid rgba(30,45,61,.4);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tag{display:inline-block;font-size:9px;padding:2px 6px;border-radius:3px}
+.tag-it{background:rgba(0,150,255,.1);border:1px solid rgba(0,150,255,.2);color:var(--blue)}
+.tag-bank{background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.2);color:var(--yellow)}
+.tag-other{background:rgba(74,85,104,.2);border:1px solid var(--border);color:var(--muted)}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg3);border:1px solid var(--accent);border-radius:8px;padding:12px 18px;font-size:12px;color:var(--accent);z-index:999;animation:slideIn .3s ease;display:none}
+.toast.err{border-color:var(--red);color:var(--red)}
+@keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.hint{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.6}
+.divider{height:1px;background:var(--border);margin:16px 0}
+.row{display:flex;gap:10px;align-items:flex-end}
+.mf-search-result{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px;margin-top:8px;cursor:pointer;transition:all .2s;font-size:12px}
+.mf-search-result:hover{border-color:var(--accent);background:rgba(0,212,170,.05)}
+.scheme-code{color:var(--accent);font-weight:600}
+.save-bar{position:sticky;bottom:0;background:var(--bg2);border-top:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:12px;margin:-20px;margin-top:20px;border-radius:0 0 8px 8px}
+.save-status{font-size:11px;color:var(--muted)}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div>
+    <div class="logo">MARKET<span>.</span>MONITOR</div>
+    <div class="subtitle">Holdings Editor — changes save to data/holdings.json</div>
+  </div>
+  <div style="margin-left:auto;display:flex;gap:10px;align-items:center">
+    <span id="connStatus" style="font-size:11px;color:var(--muted)">Connecting…</span>
+    <a href="http://localhost:8080" style="font-size:11px">← Back to Dashboard</a>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="go('stocks')">📈 Stocks</div>
+  <div class="tab" onclick="go('mf')">📊 Mutual Funds</div>
+  <div class="tab" onclick="go('raw')">📝 Raw JSON</div>
+</div>
+
+<!-- ═══ STOCKS ═══ -->
+<div id="tab-stocks" class="tc active">
+  <div class="card">
+    <div class="ct">Add Stock</div>
+    <div class="grid4" style="margin-bottom:12px">
+      <div>
+        <label>NSE Symbol *</label>
+        <input id="s-sym" placeholder="e.g. INFY" oninput="this.value=this.value.toUpperCase()"/>
+        <div class="hint">Exactly as on NSE website</div>
+      </div>
+      <div>
+        <label>Company Name</label>
+        <input id="s-name" placeholder="e.g. Infosys Ltd"/>
+      </div>
+      <div>
+        <label>Quantity *</label>
+        <input id="s-qty" type="number" placeholder="e.g. 25" min="1"/>
+      </div>
+      <div>
+        <label>Avg Buy Price (₹) *</label>
+        <input id="s-avg" type="number" placeholder="e.g. 1450.50" step="0.01" min="0.01"/>
+      </div>
+    </div>
+    <div class="grid2" style="margin-bottom:16px">
+      <div>
+        <label>Sector</label>
+        <select id="s-sector">
+          <option>IT</option><option>Banking</option><option>Energy</option>
+          <option>FMCG</option><option>Auto</option><option>Pharma</option>
+          <option>NBFC</option><option>Consumer</option><option>Infra</option>
+          <option>Telecom</option><option>Materials</option><option>Utilities</option>
+          <option>Conglomerate</option><option>Others</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:flex-end">
+        <button class="btn btn-primary" onclick="addStock()" style="width:100%">+ Add Stock</button>
+      </div>
+    </div>
+    <div class="hint" style="padding:10px;background:var(--bg3);border-radius:6px;border:1px solid var(--border)">
+      💡 <strong style="color:var(--text)">How to find your values from Groww:</strong><br>
+      Open Groww app → Stocks tab → tap any stock → you'll see <strong>Qty held</strong> and <strong>Avg. buy price</strong>.<br>
+      The symbol is the NSE ticker shown next to the stock name (e.g. <strong>INFY</strong>, <strong>RELIANCE</strong>, <strong>HDFCBANK</strong>).
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">Current Stocks (<span id="stockCount">0</span>)</div>
+    <div id="stocksTable"></div>
+  </div>
+</div>
+
+<!-- ═══ MUTUAL FUNDS ═══ -->
+<div id="tab-mf" class="tc">
+  <div class="card">
+    <div class="ct">Add Mutual Fund</div>
+    <div class="grid2" style="margin-bottom:12px">
+      <div>
+        <label>Search Fund Name</label>
+        <div class="row">
+          <input id="mf-search" placeholder="e.g. Parag Parikh Flexi" style="flex:1"/>
+          <button class="btn btn-secondary btn-sm" onclick="searchMF()">Search</button>
+        </div>
+        <div id="mf-results"></div>
+        <div class="hint">Searches live AMFI database — auto-fills scheme code</div>
+      </div>
+      <div>
+        <label>Or enter Scheme Code directly</label>
+        <input id="mf-code" placeholder="e.g. 120503"/>
+        <div class="hint">
+          Look up: <a href="https://api.mfapi.in/mf/search?q=parag+parikh" target="_blank">api.mfapi.in/mf/search?q=fund+name</a>
+        </div>
+      </div>
+    </div>
+    <div class="grid4" style="margin-bottom:12px">
+      <div>
+        <label>Fund Name *</label>
+        <input id="mf-name" placeholder="Auto-filled from search"/>
+      </div>
+      <div>
+        <label>Units Held *</label>
+        <input id="mf-units" type="number" placeholder="e.g. 245.678" step="0.001" min="0.001"/>
+        <div class="hint">From Groww → MF → tap fund → Units</div>
+      </div>
+      <div>
+        <label>Avg Buy NAV (₹) *</label>
+        <input id="mf-nav" type="number" placeholder="e.g. 58.23" step="0.0001" min="0.0001"/>
+        <div class="hint">From Groww → Avg. cost / unit</div>
+      </div>
+      <div>
+        <label>Folio Number</label>
+        <input id="mf-folio" placeholder="From your statement"/>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="addMF()" style="width:100%">+ Add Mutual Fund</button>
+    <div class="divider"></div>
+    <div class="hint" style="padding:10px;background:var(--bg3);border-radius:6px;border:1px solid var(--border)">
+      💡 <strong style="color:var(--text)">How to find your values from Groww:</strong><br>
+      Open Groww app → Mutual Funds tab → tap any fund →<br>
+      You'll see <strong>Units</strong> and <strong>Avg. cost / unit (NAV)</strong>.<br>
+      For folio number: Groww → Account → Statements → it's on any statement PDF.
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">Current Mutual Funds (<span id="mfCount">0</span>)</div>
+    <div id="mfTable"></div>
+  </div>
+</div>
+
+<!-- ═══ RAW JSON ═══ -->
+<div id="tab-raw" class="tc">
+  <div class="card">
+    <div class="ct">Raw JSON Editor</div>
+    <div class="hint" style="margin-bottom:12px;padding:10px;background:var(--bg3);border-radius:6px;border:1px solid var(--border)">
+      ⚠ Edit directly only if you're comfortable with JSON. Make sure commas and brackets are correct before saving.
+    </div>
+    <textarea id="rawJson" style="width:100%;height:400px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:12px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;outline:none;resize:vertical;line-height:1.6" spellcheck="false"></textarea>
+    <div style="display:flex;gap:10px;margin-top:12px">
+      <button class="btn btn-primary" onclick="saveRaw()">💾 Save JSON</button>
+      <button class="btn btn-secondary" onclick="loadData()">↺ Reload from file</button>
+      <span id="jsonError" style="font-size:11px;color:var(--red);align-self:center"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Save bar -->
+<div class="save-bar" style="position:fixed;bottom:0;left:0;right:0;z-index:100;margin:0;border-radius:0;padding:12px 24px">
+  <button class="btn btn-primary" onclick="saveAll()">💾 Save All Changes</button>
+  <span class="save-status" id="saveStatus">Load the dashboard first, then changes will save here.</span>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'http://localhost:8080';
+let holdings = { stocks: [], mutual_funds: [], last_updated: '' };
+
+const SECTORS = ['IT','Banking','Energy','FMCG','Auto','Pharma','NBFC','Consumer','Infra','Telecom','Materials','Utilities','Conglomerate','Others'];
+const SECTOR_MAP = {
+  'RELIANCE':'Energy','ONGC':'Energy','NTPC':'Utilities','POWERGRID':'Utilities',
+  'INFY':'IT','TCS':'IT','WIPRO':'IT','HCLTECH':'IT','TECHM':'IT','LTIM':'IT',
+  'HDFCBANK':'Banking','ICICIBANK':'Banking','AXISBANK':'Banking','SBIN':'Banking','KOTAKBANK':'Banking',
+  'BAJFINANCE':'NBFC','BAJAJFINSV':'NBFC','TITAN':'Consumer','ASIANPAINT':'Consumer',
+  'HINDUNILVR':'FMCG','ITC':'FMCG','NESTLEIND':'FMCG','DABUR':'FMCG',
+  'MARUTI':'Auto','TATAMOTORS':'Auto','BAJAJ-AUTO':'Auto','HEROMOTOCO':'Auto',
+  'SUNPHARMA':'Pharma','DRREDDY':'Pharma','DIVISLAB':'Pharma','CIPLA':'Pharma',
+  'ULTRACEMCO':'Materials','JSWSTEEL':'Materials','TATASTEEL':'Materials',
+  'BHARTIARTL':'Telecom','LT':'Infra','ADANIENT':'Conglomerate',
+  'TATAGOLD':'Gold ETF',  'GOLDBEES':'Gold ETF',   'AXISGOLD':'Gold ETF',
+  'HDFCGOLD':'Gold ETF',  'SBIGOLD':'Gold ETF',    'NIPGOLD':'Gold ETF',
+  'GOLDSHARE':'Gold ETF', 'SILVERETF':'Silver ETF','SILVERBEES':'Silver ETF',
+  'TATASILV':'Silver ETF','NIFTYBEES':'Index ETF',  'JUNIORBEES':'Index ETF',
+  'BANKBEES':'Index ETF',
+};
+
+// ── Init ──────────────────────────────────────────────────────────────────
+async function loadData() {
+  try {
+    const r = await fetch(`${API}/api/holdings`);
+    if (!r.ok) throw new Error('not ok');
+    holdings = await r.json();
+    renderStocks(); renderMF();
+    document.getElementById('rawJson').value = JSON.stringify(holdings, null, 2);
+    document.getElementById('connStatus').textContent = '✓ Connected';
+    document.getElementById('connStatus').style.color = 'var(--accent)';
+    document.getElementById('saveStatus').textContent = `${holdings.stocks.length} stocks, ${holdings.mutual_funds.length} MFs loaded.`;
+  } catch(e) {
+    document.getElementById('connStatus').textContent = '✗ Backend not running';
+    document.getElementById('connStatus').style.color = 'var(--red)';
+    document.getElementById('saveStatus').textContent = 'Start the backend (start.bat) first, then refresh this page.';
+    showToast('Cannot connect to backend. Run start.bat first.', true);
+  }
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
+const TABS = ['stocks','mf','raw'];
+function go(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', TABS[i]===name));
+  document.querySelectorAll('.tc').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if (name === 'raw') document.getElementById('rawJson').value = JSON.stringify(holdings, null, 2);
+}
+
+// ── Stocks ────────────────────────────────────────────────────────────────
+function addStock() {
+  const sym  = document.getElementById('s-sym').value.trim().toUpperCase();
+  const name = document.getElementById('s-name').value.trim() || sym;
+  const qty  = parseInt(document.getElementById('s-qty').value);
+  const avg  = parseFloat(document.getElementById('s-avg').value);
+  const sec  = document.getElementById('s-sector').value;
+  if (!sym) { showToast('Enter stock symbol', true); return; }
+  if (!qty || qty < 1) { showToast('Enter valid quantity', true); return; }
+  if (!avg || avg <= 0) { showToast('Enter valid average buy price', true); return; }
+  // Update if exists
+  const idx = holdings.stocks.findIndex(s => s.symbol === sym);
+  const entry = { symbol:sym, name, exchange:'NSE', quantity:qty, avg_buy_price:avg, sector:sec };
+  if (idx >= 0) { holdings.stocks[idx] = entry; showToast(`Updated ${sym}`); }
+  else          { holdings.stocks.push(entry); showToast(`Added ${sym}`); }
+  // Auto-detect sector
+  if (SECTOR_MAP[sym]) document.getElementById('s-sector').value = SECTOR_MAP[sym];
+  // Clear
+  ['s-sym','s-name','s-qty','s-avg'].forEach(id => document.getElementById(id).value = '');
+  renderStocks();
+}
+
+function autoSector() {
+  const sym = document.getElementById('s-sym').value.trim().toUpperCase();
+  const sec = SECTOR_MAP[sym];
+  if (sec) document.getElementById('s-sector').value = sec;
+  if (sym && !document.getElementById('s-name').value) {
+    // Try to fill name from known list
+    const names = {
+      'INFY':'Infosys Ltd','TCS':'Tata Consultancy Services','WIPRO':'Wipro Ltd',
+      'HCLTECH':'HCL Technologies','RELIANCE':'Reliance Industries Ltd',
+      'HDFCBANK':'HDFC Bank Ltd','ICICIBANK':'ICICI Bank Ltd','SBIN':'State Bank of India',
+      'AXISBANK':'Axis Bank Ltd','KOTAKBANK':'Kotak Mahindra Bank','BAJFINANCE':'Bajaj Finance Ltd',
+      'MARUTI':'Maruti Suzuki India','TATAMOTORS':'Tata Motors Ltd','SUNPHARMA':'Sun Pharma Industries',
+      'DRREDDY':'Dr Reddys Laboratories','ITC':'ITC Ltd','HINDUNILVR':'Hindustan Unilever',
+      'TITAN':'Titan Company Ltd','NESTLEIND':'Nestle India','LT':'Larsen & Toubro Ltd',
+      'BHARTIARTL':'Bharti Airtel Ltd','NTPC':'NTPC Ltd','ONGC':'Oil & Natural Gas Corp',
+      'ULTRACEMCO':'UltraTech Cement','JSWSTEEL':'JSW Steel Ltd','TATASTEEL':'Tata Steel Ltd',
+    };
+    if (names[sym]) document.getElementById('s-name').value = names[sym];
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('s-sym').addEventListener('input', autoSector);
+});
+
+function editStock(i) {
+  const s = holdings.stocks[i];
+  document.getElementById('s-sym').value = s.symbol;
+  document.getElementById('s-name').value = s.name;
+  document.getElementById('s-qty').value = s.quantity;
+  document.getElementById('s-avg').value = s.avg_buy_price;
+  document.getElementById('s-sector').value = s.sector;
+  document.getElementById('s-sym').focus();
+  holdings.stocks.splice(i, 1);
+  renderStocks();
+}
+
+function deleteStock(i) {
+  if (!confirm(`Delete ${holdings.stocks[i].symbol}?`)) return;
+  holdings.stocks.splice(i, 1);
+  renderStocks();
+  showToast('Deleted');
+}
+
+function renderStocks() {
+  document.getElementById('stockCount').textContent = holdings.stocks.length;
+  const el = document.getElementById('stocksTable');
+  if (!holdings.stocks.length) {
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:12px">No stocks added yet. Fill the form above.</div>';
+    return;
+  }
+  el.innerHTML = `<table class="tbl"><thead><tr>
+    <th>Symbol</th><th>Name</th><th>Qty</th><th>Avg Buy Price</th><th>Sector</th><th>Actions</th>
+  </tr></thead><tbody>
+    ${holdings.stocks.map((s,i) => `<tr>
+      <td><strong style="color:var(--accent)">${s.symbol}</strong></td>
+      <td style="font-size:12px">${s.name}</td>
+      <td>${s.quantity}</td>
+      <td>₹${s.avg_buy_price.toLocaleString('en-IN')}</td>
+      <td><span class="tag tag-other">${s.sector}</span></td>
+      <td>
+        <button class="btn btn-secondary btn-sm" onclick="editStock(${i})">Edit</button>
+        <button class="btn btn-danger btn-sm" style="margin-left:4px" onclick="deleteStock(${i})">✕</button>
+      </td>
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+
+// ── Mutual Funds ──────────────────────────────────────────────────────────
+async function searchMF() {
+  const q = document.getElementById('mf-search').value.trim();
+  if (!q) return;
+  const res = document.getElementById('mf-results');
+  res.innerHTML = '<div style="font-size:11px;color:var(--muted);padding:6px 0">Searching…</div>';
+  try {
+    const d = await fetch(`${API}/api/mf/search?q=${encodeURIComponent(q)}`).then(r => r.json());
+    if (!d.length) { res.innerHTML = '<div style="font-size:11px;color:var(--red);padding:6px 0">No results. Try different keywords.</div>'; return; }
+    res.innerHTML = d.slice(0,6).map(f => `
+      <div class="mf-search-result" onclick="selectMF('${f.schemeCode}','${esc(f.schemeName)}')">
+        <span class="scheme-code">${f.schemeCode}</span> &nbsp;
+        <span style="font-size:11px">${esc(f.schemeName)}</span>
+      </div>`).join('');
+  } catch {
+    res.innerHTML = '<div style="font-size:11px;color:var(--red);padding:6px 0">Search failed. Backend must be running.</div>';
+  }
+}
+
+function selectMF(code, name) {
+  document.getElementById('mf-code').value = code;
+  document.getElementById('mf-name').value = name;
+  document.getElementById('mf-results').innerHTML = '';
+  document.getElementById('mf-units').focus();
+}
+
+function addMF() {
+  const code  = document.getElementById('mf-code').value.trim();
+  const name  = document.getElementById('mf-name').value.trim();
+  const units = parseFloat(document.getElementById('mf-units').value);
+  const nav   = parseFloat(document.getElementById('mf-nav').value);
+  const folio = document.getElementById('mf-folio').value.trim() || 'N/A';
+  if (!code) { showToast('Enter or search for scheme code', true); return; }
+  if (!name) { showToast('Enter fund name', true); return; }
+  if (!units || units <= 0) { showToast('Enter valid units', true); return; }
+  if (!nav || nav <= 0) { showToast('Enter valid avg NAV', true); return; }
+  const idx = holdings.mutual_funds.findIndex(m => m.scheme_code === code);
+  const entry = { scheme_code:code, name, units:parseFloat(units.toFixed(3)), avg_nav:parseFloat(nav.toFixed(4)), folio };
+  if (idx >= 0) { holdings.mutual_funds[idx] = entry; showToast(`Updated ${name.substring(0,30)}…`); }
+  else          { holdings.mutual_funds.push(entry); showToast(`Added ${name.substring(0,30)}…`); }
+  ['mf-code','mf-name','mf-units','mf-nav','mf-folio'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('mf-results').innerHTML = '';
+  renderMF();
+}
+
+function editMF(i) {
+  const m = holdings.mutual_funds[i];
+  document.getElementById('mf-code').value  = m.scheme_code;
+  document.getElementById('mf-name').value  = m.name;
+  document.getElementById('mf-units').value = m.units;
+  document.getElementById('mf-nav').value   = m.avg_nav;
+  document.getElementById('mf-folio').value = m.folio;
+  holdings.mutual_funds.splice(i, 1);
+  renderMF();
+}
+
+function deleteMF(i) {
+  if (!confirm(`Delete ${holdings.mutual_funds[i].name.substring(0,40)}?`)) return;
+  holdings.mutual_funds.splice(i, 1);
+  renderMF();
+  showToast('Deleted');
+}
+
+function renderMF() {
+  document.getElementById('mfCount').textContent = holdings.mutual_funds.length;
+  const el = document.getElementById('mfTable');
+  if (!holdings.mutual_funds.length) {
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:12px">No mutual funds added yet. Search above.</div>';
+    return;
+  }
+  el.innerHTML = `<table class="tbl"><thead><tr>
+    <th>Scheme Code</th><th>Fund Name</th><th>Units</th><th>Avg NAV</th><th>Folio</th><th>Actions</th>
+  </tr></thead><tbody>
+    ${holdings.mutual_funds.map((m,i) => `<tr>
+      <td><strong style="color:var(--accent)">${m.scheme_code}</strong></td>
+      <td style="font-size:11px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.name}</td>
+      <td>${m.units}</td>
+      <td>₹${m.avg_nav}</td>
+      <td style="font-size:11px;color:var(--muted)">${m.folio}</td>
+      <td>
+        <button class="btn btn-secondary btn-sm" onclick="editMF(${i})">Edit</button>
+        <button class="btn btn-danger btn-sm" style="margin-left:4px" onclick="deleteMF(${i})">✕</button>
+      </td>
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+
+// ── Save ──────────────────────────────────────────────────────────────────
+async function saveAll() {
+  holdings.last_updated = new Date().toISOString().split('T')[0];
+  const btn = document.querySelector('.save-bar .btn-primary');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  try {
+    const r = await fetch(`${API}/api/holdings/save`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(holdings),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    showToast('✓ Saved! Refresh the dashboard to see changes.');
+    document.getElementById('saveStatus').textContent = `Last saved: ${new Date().toLocaleTimeString('en-IN')}`;
+  } catch(e) {
+    showToast('Save failed: ' + e.message, true);
+  }
+  btn.textContent = '💾 Save All Changes'; btn.disabled = false;
+}
+
+function saveRaw() {
+  const raw = document.getElementById('rawJson').value;
+  const errEl = document.getElementById('jsonError');
+  try {
+    holdings = JSON.parse(raw);
+    errEl.textContent = '';
+    renderStocks(); renderMF();
+    saveAll();
+  } catch(e) {
+    errEl.textContent = 'JSON error: ' + e.message;
+  }
+}
+
+// ── Utils ──────────────────────────────────────────────────────────────────
+function showToast(msg, isErr=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (isErr ? ' err' : '');
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 3000);
+}
+
+function esc(s) { return (s||'').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('mf-search').addEventListener('keydown', e => {
+    if (e.key === 'Enter') searchMF();
+  });
+});
+
+loadData();
+</script>
+</body>
+</html>

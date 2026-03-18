@@ -1,0 +1,45 @@
+{
+  "last_updated": "2026-01-01",
+  "stocks": [
+    {
+      "symbol": "RELIANCE",
+      "name": "Reliance Industries",
+      "exchange": "NSE",
+      "quantity": 10,
+      "avg_buy_price": 2500.0,
+      "sector": "Energy"
+    },
+    {
+      "symbol": "TCS",
+      "name": "Tata Consultancy Services",
+      "exchange": "NSE",
+      "quantity": 5,
+      "avg_buy_price": 3800.0,
+      "sector": "IT"
+    },
+    {
+      "symbol": "INFY",
+      "name": "Infosys Limited",
+      "exchange": "NSE",
+      "quantity": 8,
+      "avg_buy_price": 1600.0,
+      "sector": "IT"
+    }
+  ],
+  "mutual_funds": [
+    {
+      "scheme_code": "120503",
+      "name": "Parag Parikh Flexi Cap Fund - Direct Growth",
+      "units": 50.0,
+      "avg_nav": 100.0,
+      "folio": "XXXXXXXXXXXX"
+    },
+    {
+      "scheme_code": "120716",
+      "name": "UTI Nifty 50 Index Fund - Direct Growth",
+      "units": 100.0,
+      "avg_nav": 180.0,
+      "folio": "XXXXXXXXXXXX"
+    }
+  ]
+}
