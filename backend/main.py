@@ -45,6 +45,7 @@ from screener import (fetch_screener_stocks, fetch_etf_board, fetch_mf_category,
                        SECTOR_SYMBOLS, INDEX_MAP, MF_SCHEMES, ETF_CATEGORIES)
 from fno import fetch_option_chain, fetch_fii_dii, fetch_all_indices, fetch_most_active_fno
 from predict import fetch_prediction, batch_predict
+from metals import fetch_metals, fetch_metal_history, METALS_CONFIG
 
 app = FastAPI(title="Market Monitor", version="3.0.0")
 app.add_middleware(
@@ -292,6 +293,23 @@ async def chat_endpoint(req: ChatRequest):
 
 
 # ── Frontend ──────────────────────────────────────────────────────────────
+# ── Metals ────────────────────────────────────────────────────────────────
+@app.get("/api/metals")
+async def metals():
+    try:
+        return await fetch_metals()
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/api/metals/history/{symbol:path}")
+async def metal_history(symbol: str, period: str = "6mo"):
+    try:
+        return await fetch_metal_history(symbol, period)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 @app.get("/")
 async def frontend():
     return FileResponse(str(FRONTEND))

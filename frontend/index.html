@@ -369,10 +369,10 @@ draw();
 </script>
 <style>
 :root{
-  --bg:#07090e;--bg2:#0d1117;--bg3:#131920;--bg4:#1a2332;
-  --border:#1e2d3d;--accent:#00d4aa;--blue:#0096ff;
-  --red:#ff4d6d;--yellow:#ffd166;--orange:#ff9f43;
-  --text:#c9d1d9;--muted:#4a5568;--white:#e6edf3;
+  --bg:#0d1117;--bg2:#161b22;--bg3:#1c2128;--bg4:#21262d;
+  --border:#30363d;--accent:#00d4aa;--blue:#58a6ff;
+  --red:#ff6b81;--yellow:#ffd166;--orange:#ff9f43;
+  --text:#e6edf3;--muted:#7d8590;--white:#f0f6fc;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;overflow-x:hidden}
@@ -564,6 +564,8 @@ body{background:var(--bg);color:var(--text);font-family:'IBM Plex Mono',monospac
 .pred-bar-wrap{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;margin:6px 0}
 .pred-bar{height:100%;border-radius:3px;transition:width .6s ease}
 .sig-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:4px;font-size:10px;font-weight:700;font-family:'IBM Plex Mono',monospace;letter-spacing:.5px}
+.metal-card{cursor:pointer;transition:transform .15s,box-shadow .15s}
+.metal-card:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(0,0,0,.35)}
 .sig-buy{background:rgba(0,212,170,.15);color:#00d4aa;border:1px solid rgba(0,212,170,.3)}
 .sig-sbuy{background:rgba(0,212,170,.3);color:#00d4aa;border:1px solid rgba(0,212,170,.5)}
 .sig-sell{background:rgba(255,77,109,.15);color:#ff4d6d;border:1px solid rgba(255,77,109,.3)}
@@ -880,6 +882,7 @@ a{color:var(--accent)}
     <div class="stab" onclick="scrGo('fiidii')">🌍 FII / DII</div>
     <div class="stab" onclick="scrGo('indices')">🗂 All Indices</div>
     <div class="stab" onclick="scrGo('signals')">🔮 Signal Scanner</div>
+    <div class="stab" onclick="scrGo('metals')">🥇 Metals</div>
   </div>
 
   <!-- ── STOCKS ── -->
@@ -1135,6 +1138,44 @@ a{color:var(--accent)}
           </thead>
           <tbody id="scanBody"><tr><td colspan="11" style="text-align:center;padding:32px;color:var(--muted);font-size:12px">Click "Run Scan" to analyse stocks with 15 technical indicators</td></tr></tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── METALS ── -->
+  <div id="ssec-metals" class="ssec">
+    <div class="row" style="margin-bottom:4px">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;color:#fff">Precious &amp; Base Metals</div>
+        <div style="font-size:10px;color:var(--muted)">Live spot prices · Converted to INR per Indian market unit · Yahoo Finance / MCX aligned</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="metalFx" style="font-size:11px;color:var(--muted)">USD/INR: —</span>
+        <span id="metalUpdated" style="font-size:10px;color:var(--muted)"></span>
+        <button class="rbtn" onclick="loadMetals(true)">↻ Refresh</button>
+      </div>
+    </div>
+
+    <!-- Price cards grid -->
+    <div id="metalGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:16px">
+      <div class="ld"><div class="sp"></div>Loading metal prices…</div>
+    </div>
+
+    <!-- Predictions section -->
+    <div class="card gap" style="margin-top:4px">
+      <div class="row">
+        <div class="ct">🔮 Commodity Predictions</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <select id="metalPredPeriod" style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:11px" onchange="loadMetalPredictions()">
+            <option value="6mo" selected>6 Months</option>
+            <option value="1y">1 Year</option>
+            <option value="2y">2 Years</option>
+          </select>
+          <button class="scan-btn" onclick="loadMetalPredictions()">Run Predictions</button>
+        </div>
+      </div>
+      <div id="metalPredGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;margin-top:8px">
+        <div style="color:var(--muted);font-size:11px">Click "Run Predictions" to analyze each metal with 15 indicators.</div>
       </div>
     </div>
   </div>
@@ -2476,7 +2517,7 @@ function initScreener() {
 // ── Sub-tab navigation ──────────────────────────────────────────────────────
 function scrGo(name) {
   // Abort any in-flight load for the section we're leaving
-  const tabs = ['stocks','etfs','mf','fno','fiidii','indices','signals'];
+  const tabs = ['stocks','etfs','mf','fno','fiidii','indices','signals','metals'];
   const prev = tabs.find(t => document.getElementById('ssec-'+t)?.classList.contains('active'));
   if(prev && prev !== name && _scrAC[prev]) {
     try { _scrAC[prev].abort(); } catch(_){}
@@ -2495,6 +2536,7 @@ function scrGo(name) {
   if(name === 'fno'     && !document.querySelector('#fnoChainBody tr.oc-row')) loadFnO('NIFTY');
   if(name === 'fiidii'  && !document.querySelector('#fiiDiiContent .flow-card')) loadFiiDii();
   if(name === 'indices' && !document.querySelector('#idxBody tr.idx-row')) loadAllIndices();
+  if(name === 'metals'  && !document.querySelector('#metalGrid .metal-card')) loadMetals();
   // signals tab: no auto-load — user clicks Run Scan
 }
 
@@ -3014,6 +3056,209 @@ function renderScanTable() {
       <td style="text-align:right;color:var(--muted)">${r.position_52w!=null?r.position_52w+'%':'—'}</td>
     </tr>`;
   }).join('');
+}
+
+// ── Metals ────────────────────────────────────────────────────────────────
+let metalsData = null;
+
+function fmtMetalPrice(v) {
+  if(!v) return '—';
+  if(v >= 1e6) return '₹' + (v/1e5).toFixed(2) + 'L';
+  if(v >= 1000) return '₹' + v.toLocaleString('en-IN', {maximumFractionDigits:2});
+  return '₹' + v.toFixed(2);
+}
+
+async function loadMetals(force = false) {
+  const grid = document.getElementById('metalGrid');
+  if(!grid) return;
+  if(!force && metalsData) { renderMetalGrid(metalsData); return; }
+  grid.innerHTML = '<div class="ld"><div class="sp"></div>Fetching live metal prices…</div>';
+  try {
+    const signal = _abortScr('metals');
+    const r = await fetch('/api/metals', {signal});
+    if(_isAbortErr(r)) return;
+    metalsData = await r.json();
+    renderMetalGrid(metalsData);
+  } catch(e) {
+    if(_isAbortErr(e)) return;
+    grid.innerHTML = `<div class="ld" style="color:var(--red)">Failed to load metal prices: ${e.message}</div>`;
+  }
+}
+
+function renderMetalGrid(data) {
+  const grid = document.getElementById('metalGrid');
+  const fx   = document.getElementById('metalFx');
+  const upd  = document.getElementById('metalUpdated');
+  if(fx)  fx.textContent  = `USD/INR: ₹${data.usd_inr}`;
+  if(upd) upd.textContent = `Updated ${data.updated}`;
+
+  grid.innerHTML = data.metals.map(m => {
+    if(m.error) return `
+      <div class="card metal-card" style="opacity:.5">
+        <div style="font-size:22px">${m.icon}</div>
+        <div style="font-weight:700;font-size:13px;color:#fff">${m.name}</div>
+        <div style="font-size:11px;color:var(--muted)">Data unavailable</div>
+      </div>`;
+
+    const up  = m.change_pct >= 0;
+    const col = up ? 'var(--accent)' : 'var(--red)';
+    const arr = up ? '▲' : '▼';
+    const pct = Math.abs(m.change_pct).toFixed(2);
+    const range = m.day_high_inr - m.day_low_inr;
+    const barPct = range > 0 ? Math.round((m.price_inr - m.day_low_inr) / range * 100) : 50;
+
+    return `
+      <div class="card metal-card" onclick="showMetalDetail('${m.symbol}','${m.name}','${m.icon}')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:24px">${m.icon}</span>
+            <div>
+              <div style="font-weight:700;font-size:13px;color:#fff">${m.name}</div>
+              <div style="font-size:10px;color:var(--muted)">${m.unit} · ${m.note}</div>
+            </div>
+          </div>
+          <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:${m.type==='precious'?'rgba(255,215,0,.12)':'rgba(120,120,180,.12)'};color:${m.type==='precious'?'#ffd700':'#9090cc'}">${m.type}</span>
+        </div>
+        <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:#fff">${fmtMetalPrice(m.price_inr)}</div>
+        <div style="font-size:11px;margin:2px 0 6px">
+          <span style="color:${col}">${arr} ${pct}%</span>
+          <span style="color:var(--muted);margin-left:6px">(${m.change_inr>=0?'+':''}${fmtMetalPrice(Math.abs(m.change_inr))})</span>
+          <span style="color:var(--muted);margin-left:8px">$${m.price_usd.toLocaleString()}</span>
+        </div>
+        <div style="font-size:10px;color:var(--muted);display:flex;justify-content:space-between;margin-bottom:4px">
+          <span>L ${fmtMetalPrice(m.day_low_inr)}</span><span>H ${fmtMetalPrice(m.day_high_inr)}</span>
+        </div>
+        <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+          <div style="height:100%;width:${barPct}%;background:${col};border-radius:2px;transition:width .3s"></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:6px;text-align:right">${m.market_state}</div>
+      </div>`;
+  }).join('');
+}
+
+async function showMetalDetail(symbol, name, icon) {
+  // show mini chart in a popup — reuse stock popup structure
+  const period = document.getElementById('metalPredPeriod')?.value || '6mo';
+  try {
+    const r = await fetch(`/api/metals/history/${encodeURIComponent(symbol)}?period=${period}`);
+    const d = await r.json();
+    if(!d.candles || !d.candles.length) return;
+    // Just open a simple info – full popup would require chart integration
+    // For now show prediction popup if available
+    showMetalPopup(symbol, name, icon, d.candles);
+  } catch(e) { /* silent */ }
+}
+
+function showMetalPopup(symbol, name, icon, candles) {
+  const pop = document.getElementById('stockPopup');
+  const body = document.getElementById('popupBody');
+  if(!pop || !body) return;
+
+  const last  = candles[candles.length-1];
+  const first = candles[0];
+  const chgPct = first.price ? ((last.price - first.price)/first.price*100).toFixed(2) : 0;
+  const up = chgPct >= 0;
+
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <span style="font-size:32px">${icon}</span>
+      <div>
+        <div style="font-size:18px;font-weight:700;color:#fff">${name}</div>
+        <div style="font-size:11px;color:var(--muted)">${symbol} · Spot Price · INR</div>
+      </div>
+      <div style="margin-left:auto;text-align:right">
+        <div style="font-size:22px;font-weight:700;color:#fff">${fmtMetalPrice(last.price)}</div>
+        <div style="font-size:12px;color:${up?'var(--accent)':'var(--red)'}">${up?'▲':'▼'} ${Math.abs(chgPct)}%</div>
+      </div>
+    </div>
+    <div id="metalChartPop" style="height:220px;margin-bottom:16px;background:var(--bg2);border-radius:8px"></div>
+    <div id="metalPredPop"><div class="ld"><div class="sp"></div>Running prediction…</div></div>`;
+
+  pop.classList.add('open');
+
+  // Draw chart
+  requestAnimationFrame(() => {
+    const c = makeChart('metalChartPop');
+    if(c) {
+      const s = c.chart.addAreaSeries({lineColor:'#ffd700',topColor:'rgba(255,215,0,.18)',bottomColor:'rgba(255,215,0,0)'});
+      s.setData(candles.map(x => ({time: x.time, value: x.price})));
+      c.chart.timeScale().fitContent();
+    }
+  });
+
+  // Fetch prediction
+  fetch(`/api/predict/${encodeURIComponent(symbol)}`)
+    .then(r => r.json())
+    .then(pred => {
+      document.getElementById('metalPredPop').innerHTML = renderPredictionPanel(pred);
+    })
+    .catch(() => {
+      document.getElementById('metalPredPop').innerHTML =
+        '<div style="color:var(--muted);font-size:11px">Prediction unavailable for this symbol.</div>';
+    });
+}
+
+async function loadMetalPredictions() {
+  const grid = document.getElementById('metalPredGrid');
+  if(!grid) return;
+  grid.innerHTML = '<div class="ld"><div class="sp"></div>Analyzing 6 metals with 15 indicators each…</div>';
+
+  const symbols = ['GC=F','SI=F','HG=F','PL=F','PA=F','ALI=F'];
+  const names   = {
+    'GC=F':'Gold','SI=F':'Silver','HG=F':'Copper',
+    'PL=F':'Platinum','PA=F':'Palladium','ALI=F':'Aluminium'
+  };
+  const icons   = {
+    'GC=F':'🥇','SI=F':'🥈','HG=F':'🟫',
+    'PL=F':'⬜','PA=F':'🔷','ALI=F':'🔩'
+  };
+
+  try {
+    // Individual fetches (batch endpoint expects NSE symbols; commodity symbols work individually)
+    const preds = await Promise.allSettled(
+      symbols.map(s => fetch(`/api/predict/${encodeURIComponent(s)}`).then(r => r.json()))
+    );
+
+    grid.innerHTML = preds.map((p, i) => {
+      const sym  = symbols[i];
+      const name = names[sym];
+      const icon = icons[sym];
+      if(p.status === 'rejected' || p.value?.error) {
+        return `<div class="card" style="padding:12px;opacity:.6">
+          <div>${icon} <b>${name}</b></div>
+          <div style="font-size:11px;color:var(--muted)">Prediction unavailable</div>
+        </div>`;
+      }
+      const pred = p.value;
+      const sc   = pred.score ?? 50;
+      const verd = pred.verdict ?? 'Neutral';
+      const cls  = verd.includes('Strong Buy')?'sig-sbuy':verd.includes('Buy')?'sig-buy':
+                   verd.includes('Strong Sell')?'sig-ssell':verd.includes('Sell')?'sig-sell':'sig-neut';
+      return `
+        <div class="card" style="padding:14px;cursor:pointer" onclick="showMetalPopup('${sym}','${name}','${icon}',[])">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="font-size:20px">${icon}</span>
+            <div style="font-weight:700;color:#fff;font-size:13px">${name}</div>
+            <span class="sig-badge ${cls}" style="margin-left:auto">${verd}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="pred-score-ring" style="--sc:${sc}%;--sc-color:${sc>=60?'var(--accent)':sc>=40?'var(--yellow)':'var(--red)'}">
+              <span>${sc}</span>
+            </div>
+            <div style="flex:1">
+              <div class="pred-bar-wrap" style="margin-bottom:4px">
+                <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+                  <div style="height:100%;width:${sc}%;background:${sc>=60?'var(--accent)':sc>=40?'var(--yellow)':'var(--red)'};border-radius:3px"></div>
+                </div>
+              </div>
+              <div style="font-size:10px;color:var(--muted)">${pred.summary || ''}</div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    grid.innerHTML = `<div style="color:var(--red);font-size:12px">Error: ${e.message}</div>`;
+  }
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────

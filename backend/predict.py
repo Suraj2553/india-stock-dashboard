@@ -622,7 +622,7 @@ def generate_prediction(candles: list) -> dict:
 
 async def fetch_prediction(symbol: str) -> dict:
     """Fetch 1Y daily OHLCV from Yahoo Finance and run prediction."""
-    ticker = f"{symbol}.NS" if not symbol.startswith("^") else symbol
+    ticker = symbol if (symbol.startswith("^") or symbol.endswith("=F") or "=" in symbol) else f"{symbol}.NS"
     url    = (f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
               f"?interval=1d&range=1y")
     try:
