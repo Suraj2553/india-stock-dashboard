@@ -1,0 +1,12 @@
+﻿__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.zip
+.env
+data/holdings.json
+imports/*.csv

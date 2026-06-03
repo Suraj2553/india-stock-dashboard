@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Market Monitor — Real-time Indian Stock Intelligence</title>
+<meta name="description" content="Real-time Indian stock market dashboard with AI analysis, candlestick charts, F&O option chains, portfolio tracking and live news. Runs locally, no cloud."/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:#0d1117; --bg2:#161b22; --bg3:#1c2128; --bg4:#21262d;
+  --border:#30363d; --accent:#00d4aa; --blue:#58a6ff;
+  --red:#ff6b81; --yellow:#ffd166; --orange:#ff9f43;
+  --text:#e6edf3; --muted:#7d8590; --white:#f0f6fc;
+}
+
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html { scroll-behavior:smooth; }
+
+body {
+  background:var(--bg);
+  color:var(--text);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:13px;
+  line-height:1.6;
+  overflow-x:hidden;
+}
+
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background-image:
+    linear-gradient(rgba(0,212,170,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,170,.025) 1px, transparent 1px);
+  background-size:48px 48px;
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ── NAV ── */
+nav {
+  position:fixed; top:0; left:0; right:0;
+  z-index:200;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 28px; height:54px;
+  background:rgba(13,17,23,.88);
+  backdrop-filter:blur(24px);
+  -webkit-backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--border);
+}
+.nav-logo {
+  font-family:'Syne',sans-serif;
+  font-size:15px; font-weight:800;
+  color:var(--white); letter-spacing:-.3px;
+}
+.nav-logo em { color:var(--accent); font-style:normal; }
+.nav-center {
+  display:flex; align-items:center; gap:6px;
+  font-size:10px; color:var(--muted); letter-spacing:.5px;
+}
+.dot-live {
+  width:7px; height:7px; border-radius:50%;
+  background:var(--accent);
+  box-shadow:0 0 8px var(--accent);
+  animation:pulse 2s ease-in-out infinite;
+  flex-shrink:0;
+}
+@keyframes pulse {
+  0%,100%{ opacity:1; box-shadow:0 0 8px var(--accent); }
+  50%    { opacity:.5; box-shadow:0 0 2px var(--accent); }
+}
+.nav-actions { display:flex; align-items:center; gap:10px; }
+.btn-ghost {
+  background:transparent;
+  color:var(--muted);
+  border:1px solid var(--border);
+  border-radius:5px; padding:6px 16px;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px; letter-spacing:.5px;
+  cursor:pointer; text-decoration:none;
+  display:inline-flex; align-items:center; gap:6px;
+  transition:all .2s;
+}
+.btn-ghost:hover { border-color:var(--accent); color:var(--accent); }
+.btn-launch {
+  background:var(--accent); color:#000;
+  border:none; border-radius:5px; padding:7px 18px;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px; font-weight:600; letter-spacing:.5px;
+  cursor:pointer; text-decoration:none;
+  display:inline-flex; align-items:center; gap:6px;
+  transition:all .2s;
+}
+.btn-launch:hover {
+  background:#00efc0;
+  transform:translateY(-1px);
+  box-shadow:0 4px 20px rgba(0,212,170,.3);
+}
+
+/* ── HERO ── */
+.hero {
+  position:relative;
+  min-height:100vh;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  padding:120px 24px 72px;
+  text-align:center;
+  overflow:hidden;
+  z-index:1;
+}
+.orb {
+  position:absolute; border-radius:50%;
+  filter:blur(90px); pointer-events:none; z-index:0;
+}
+.orb-1 {
+  width:700px; height:700px;
+  background:radial-gradient(circle, rgba(0,212,170,.11) 0%, transparent 70%);
+  top:-150px; left:-150px;
+}
+.orb-2 {
+  width:550px; height:550px;
+  background:radial-gradient(circle, rgba(88,166,255,.09) 0%, transparent 70%);
+  bottom:-100px; right:-100px;
+}
+.orb-3 {
+  width:400px; height:400px;
+  background:radial-gradient(circle, rgba(255,209,102,.05) 0%, transparent 70%);
+  top:50%; left:50%; transform:translate(-50%,-50%);
+}
+.hero-pill {
+  display:inline-flex; align-items:center; gap:8px;
+  background:rgba(0,212,170,.07);
+  border:1px solid rgba(0,212,170,.2);
+  border-radius:20px; padding:5px 16px;
+  font-size:10px; color:var(--accent);
+  letter-spacing:1px; text-transform:uppercase;
+  margin-bottom:32px;
+  position:relative; z-index:1;
+}
+.hero-title {
+  font-family:'Syne',sans-serif;
+  font-size:clamp(38px,7vw,76px);
+  font-weight:800; line-height:1.05;
+  letter-spacing:-2.5px; color:var(--white);
+  position:relative; z-index:1;
+  margin-bottom:12px;
+}
+.hero-title .hl {
+  color:var(--accent);
+  text-shadow:0 0 50px rgba(0,212,170,.25);
+}
+.hero-sub {
+  font-family:'Syne',sans-serif;
+  font-size:clamp(20px,3.5vw,38px);
+  font-weight:700; color:var(--muted);
+  letter-spacing:-1px;
+  position:relative; z-index:1; margin-bottom:28px;
+}
+.hero-desc {
+  max-width:580px; font-size:13px;
+  color:var(--muted); line-height:1.85;
+  position:relative; z-index:1; margin-bottom:44px;
+}
+.hero-ctas {
+  display:flex; align-items:center; gap:14px;
+  justify-content:center; flex-wrap:wrap;
+  position:relative; z-index:1; margin-bottom:56px;
+}
+.btn-primary {
+  background:var(--accent); color:#000;
+  border:none; border-radius:6px; padding:13px 32px;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:13px; font-weight:600; letter-spacing:.3px;
+  cursor:pointer; text-decoration:none;
+  display:inline-flex; align-items:center; gap:8px;
+  transition:all .2s;
+}
+.btn-primary:hover {
+  background:#00efc0;
+  transform:translateY(-2px);
+  box-shadow:0 8px 36px rgba(0,212,170,.35);
+}
+.btn-secondary {
+  background:transparent; color:var(--text);
+  border:1px solid var(--border);
+  border-radius:6px; padding:13px 32px;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:13px; cursor:pointer; text-decoration:none;
+  display:inline-flex; align-items:center; gap:8px;
+  transition:all .2s;
+}
+.btn-secondary:hover { border-color:var(--accent); color:var(--accent); }
+.hero-stats {
+  display:flex; gap:40px; justify-content:center; flex-wrap:wrap;
+  position:relative; z-index:1;
+}
+.stat { text-align:center; }
+.stat-val {
+  font-family:'Syne',sans-serif;
+  font-size:26px; font-weight:800;
+  color:var(--white); display:block; margin-bottom:2px;
+}
+.stat-lbl {
+  font-size:9px; color:var(--muted);
+  letter-spacing:1.5px; text-transform:uppercase;
+}
+.stat-sep {
+  width:1px; background:var(--border);
+  align-self:stretch; margin:4px 0;
+}
+
+/* ── TICKER ── */
+.ticker-wrap {
+  background:var(--bg2);
+  border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  overflow:hidden; padding:11px 0;
+  position:relative; z-index:1;
+}
+.ticker-fade-l,
+.ticker-fade-r {
+  position:absolute; top:0; bottom:0; width:80px; z-index:2;
+  pointer-events:none;
+}
+.ticker-fade-l { left:0; background:linear-gradient(90deg,var(--bg2),transparent); }
+.ticker-fade-r { right:0; background:linear-gradient(-90deg,var(--bg2),transparent); }
+.ticker-track {
+  display:flex; width:max-content;
+  animation:ticker 40s linear infinite;
+}
+.ticker-track:hover { animation-play-state:paused; }
+@keyframes ticker {
+  from { transform:translateX(0); }
+  to   { transform:translateX(-50%); }
+}
+.tick {
+  display:inline-flex; align-items:center; gap:9px;
+  padding:0 26px; border-right:1px solid var(--border);
+  white-space:nowrap; font-size:12px;
+}
+.tick-sym { font-weight:600; color:var(--white); letter-spacing:.3px; }
+.tick-price { color:var(--muted); }
+.tick-up { color:var(--accent); }
+.tick-dn { color:var(--red); }
+
+/* ── SECTIONS ── */
+section { position:relative; z-index:1; }
+.container { max-width:1180px; margin:0 auto; padding:0 28px; }
+.sec-header { text-align:center; margin-bottom:60px; }
+.sec-tag {
+  display:inline-block;
+  font-size:9px; letter-spacing:2.5px; text-transform:uppercase;
+  color:var(--accent); margin-bottom:14px;
+}
+.sec-title {
+  font-family:'Syne',sans-serif;
+  font-size:clamp(28px,4vw,46px);
+  font-weight:800; color:var(--white);
+  letter-spacing:-1.5px; margin-bottom:16px;
+}
+.sec-desc {
+  font-size:13px; color:var(--muted);
+  max-width:480px; margin:0 auto; line-height:1.85;
+}
+
+/* ── FEATURES ── */
+.features { padding:100px 0; }
+.feat-grid {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:18px;
+}
+.feat-card {
+  background:rgba(22,27,34,.75);
+  border:1px solid var(--border);
+  border-radius:12px; padding:28px;
+  position:relative; overflow:hidden;
+  transition:border-color .2s, transform .25s;
+  cursor:default;
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.feat-card::before {
+  content:'';
+  position:absolute; top:0; left:0; right:0; height:2px;
+  background:linear-gradient(90deg, var(--blue), var(--accent));
+  transform:scaleX(0); transform-origin:left;
+  transition:transform .3s ease;
+}
+.feat-card:hover {
+  border-color:rgba(0,212,170,.35);
+  transform:translateY(-4px);
+}
+.feat-card:hover::before { transform:scaleX(1); }
+.feat-icon {
+  width:42px; height:42px;
+  border-radius:9px;
+  display:flex; align-items:center; justify-content:center;
+  margin-bottom:18px;
+  background:rgba(0,212,170,.08);
+  border:1px solid rgba(0,212,170,.18);
+  color:var(--accent);
+}
+.feat-icon svg { width:20px; height:20px; }
+.feat-title {
+  font-family:'Syne',sans-serif;
+  font-size:14px; font-weight:700;
+  color:var(--white); margin-bottom:10px;
+}
+.feat-desc { font-size:12px; color:var(--muted); line-height:1.75; }
+.feat-badge {
+  display:inline-block; margin-top:16px;
+  font-size:9px; letter-spacing:1px; text-transform:uppercase;
+  background:rgba(88,166,255,.08);
+  border:1px solid rgba(88,166,255,.16);
+  color:var(--blue); padding:3px 9px; border-radius:3px;
+}
+
+/* ── CHART PREVIEW ── */
+.chart-preview { padding:0 0 100px; }
+.chart-wrap {
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:14px; overflow:hidden;
+}
+.chart-hdr {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:22px 26px 18px;
+  border-bottom:1px solid var(--border);
+  flex-wrap:wrap; gap:14px;
+}
+.chart-name-group {}
+.chart-name {
+  font-family:'Syne',sans-serif;
+  font-size:16px; font-weight:700; color:var(--white);
+  display:flex; align-items:center; gap:9px;
+}
+.chart-sub { font-size:10px; color:var(--muted); margin-top:3px; }
+.chart-right { display:flex; align-items:center; gap:20px; }
+.chart-price-big {
+  font-family:'Syne',sans-serif;
+  font-size:24px; font-weight:800; color:var(--white);
+}
+.chart-chg { font-size:12px; font-weight:600; color:var(--accent); margin-top:2px; }
+.period-row { display:flex; gap:6px; }
+.pbtn {
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--muted); border-radius:4px;
+  padding:4px 11px; cursor:pointer;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px; letter-spacing:.3px;
+  transition:all .15s;
+}
+.pbtn:hover,.pbtn.active {
+  background:var(--accent);
+  border-color:var(--accent);
+  color:#000; font-weight:600;
+}
+.canvas-wrap { background:var(--bg3); padding:20px 14px 10px; }
+
+/* ── TRUST STRIP ── */
+.trust { background:var(--bg2); border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:0; }
+.trust-inner {
+  display:flex; align-items:stretch;
+  justify-content:center; flex-wrap:wrap;
+}
+.trust-item {
+  display:flex; align-items:center; gap:9px;
+  padding:20px 32px;
+  font-size:12px; color:var(--muted);
+  border-right:1px solid var(--border);
+  transition:color .2s, background .2s;
+  cursor:default;
+}
+.trust-item:last-child { border-right:none; }
+.trust-item:hover { color:var(--text); background:rgba(0,212,170,.03); }
+.trust-item svg { color:var(--accent); flex-shrink:0; }
+
+/* ── STACK ── */
+.stack-sec { padding:88px 0; text-align:center; }
+.stack-label {
+  font-size:9px; letter-spacing:2.5px;
+  text-transform:uppercase; color:var(--muted); margin-bottom:28px;
+}
+.stack-row {
+  display:flex; flex-wrap:wrap; gap:10px; justify-content:center;
+}
+.tech-badge {
+  display:inline-flex; align-items:center; gap:8px;
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:6px; padding:9px 18px;
+  font-size:12px; color:var(--text);
+  transition:all .2s; cursor:default;
+}
+.tech-badge:hover { border-color:var(--accent); color:var(--accent); transform:translateY(-2px); }
+.tech-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+/* ── FOOTER ── */
+footer {
+  border-top:1px solid var(--border);
+  padding:36px 28px;
+  text-align:center;
+  font-size:11px; color:var(--muted);
+  position:relative; z-index:1;
+}
+footer a { color:var(--accent); text-decoration:none; }
+footer a:hover { text-decoration:underline; }
+.footer-logo {
+  font-family:'Syne',sans-serif;
+  font-size:20px; font-weight:800;
+  color:var(--white); margin-bottom:10px;
+}
+.footer-logo em { color:var(--accent); font-style:normal; }
+
+/* ── RESPONSIVE ── */
+@media(max-width:1024px) { .feat-grid { grid-template-columns:repeat(2,1fr); } }
+@media(max-width:700px) {
+  .feat-grid { grid-template-columns:1fr; }
+  .trust-inner { flex-direction:column; }
+  .trust-item { border-right:none; border-bottom:1px solid var(--border); justify-content:center; }
+  .trust-item:last-child { border-bottom:none; }
+  nav .btn-ghost { display:none; }
+  .chart-hdr { flex-direction:column; align-items:flex-start; }
+  .hero-stats { gap:24px; }
+}
+@media(max-width:420px) {
+  .hero-ctas { flex-direction:column; width:100%; }
+  .btn-primary,.btn-secondary { width:100%; justify-content:center; }
+}
+
+/* ── FADE-UP ── */
+.fade-up { opacity:0; transform:translateY(28px); transition:opacity .55s ease, transform .55s ease; }
+.fade-up.visible { opacity:1; transform:translateY(0); }
+
+@media(prefers-reduced-motion:reduce) {
+  .ticker-track,.dot-live { animation:none; }
+  *{ transition-duration:.01ms !important; }
+  .fade-up { opacity:1; transform:none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── NAV ───────────────────────────────────────────── -->
+<nav>
+  <div class="nav-logo">Market<em>Monitor</em></div>
+  <div class="nav-center">
+    <div class="dot-live"></div>
+    v3.0 &nbsp;·&nbsp; localhost:8080 &nbsp;·&nbsp; NSE / BSE / AMFI
+  </div>
+  <div class="nav-actions">
+    <a href="https://github.com" class="btn-ghost" aria-label="GitHub repository">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+      GitHub
+    </a>
+    <a href="/" class="btn-launch">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      Launch
+    </a>
+  </div>
+</nav>
+
+<!-- ── HERO ──────────────────────────────────────────── -->
+<section class="hero" aria-label="Hero">
+  <div class="orb orb-1" aria-hidden="true"></div>
+  <div class="orb orb-2" aria-hidden="true"></div>
+  <div class="orb orb-3" aria-hidden="true"></div>
+
+  <div class="hero-pill">
+    <div class="dot-live" aria-hidden="true"></div>
+    Live · NSE &amp; BSE · Real-time SSE
+  </div>
+
+  <h1 class="hero-title">
+    Real-time market<br>
+    <span class="hl">intelligence.</span>
+  </h1>
+  <p class="hero-sub">AI-powered. Locally hosted. Free.</p>
+
+  <p class="hero-desc">
+    Full-stack Indian stock market dashboard — live prices, candlestick charts,
+    F&amp;O option chains, portfolio P&amp;L, mutual fund explorer and GPT-4o
+    AI advisor. Runs on your machine, no subscriptions, no cloud.
+  </p>
+
+  <div class="hero-ctas">
+    <a href="/" class="btn-primary" aria-label="Open the Market Monitor dashboard">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Launch Dashboard
+    </a>
+    <a href="#features" class="btn-secondary">
+      Explore Features
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+    </a>
+  </div>
+
+  <div class="hero-stats" role="list" aria-label="Key stats">
+    <div class="stat" role="listitem">
+      <span class="stat-val">5s</span>
+      <span class="stat-lbl">Price updates</span>
+    </div>
+    <div class="stat-sep" aria-hidden="true"></div>
+    <div class="stat" role="listitem">
+      <span class="stat-val">1500+</span>
+      <span class="stat-lbl">NSE symbols</span>
+    </div>
+    <div class="stat-sep" aria-hidden="true"></div>
+    <div class="stat" role="listitem">
+      <span class="stat-val">6</span>
+      <span class="stat-lbl">AI models</span>
+    </div>
+    <div class="stat-sep" aria-hidden="true"></div>
+    <div class="stat" role="listitem">
+      <span class="stat-val">₹0</span>
+      <span class="stat-lbl">Subscription</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── TICKER ─────────────────────────────────────────── -->
+<div class="ticker-wrap" aria-label="Live market prices" role="region">
+  <div class="ticker-fade-l" aria-hidden="true"></div>
+  <div class="ticker-fade-r" aria-hidden="true"></div>
+  <div class="ticker-track" id="ticker" aria-live="off"></div>
+</div>
+
+<!-- ── FEATURES ──────────────────────────────────────── -->
+<section class="features" id="features" aria-labelledby="feat-heading">
+  <div class="container">
+    <div class="sec-header fade-up">
+      <div class="sec-tag">What's inside</div>
+      <h2 class="sec-title" id="feat-heading">Everything a serious<br>trader needs</h2>
+      <p class="sec-desc">Built from scratch for Indian markets. No subscriptions, no rate limits, no data leaving your machine.</p>
+    </div>
+
+    <div class="feat-grid">
+
+      <!-- SSE Streaming -->
+      <article class="feat-card fade-up">
+        <div class="feat-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </div>
+        <h3 class="feat-title">Real-time SSE Streaming</h3>
+        <p class="feat-desc">Server-Sent Events push portfolio and price updates every 5 seconds. Zero polling, zero lag. Connection auto-recovers on network drops.</p>
+        <span class="feat-badge">FastAPI · SSE</span>
+      </article>
+
+      <!-- Candlestick Charts -->
+      <article class="feat-card fade-up">
+        <div class="feat-icon" style="background:rgba(88,166,255,.09);border-color:rgba(88,166,255,.2);color:var(--blue)" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <h3 class="feat-title">Candlestick Charts</h3>
+        <p class="feat-desc">Self-contained canvas chart engine — no CDN needed. Area, line and OHLC candlestick with smooth zoom, pan and crosshair.</p>
+        <span class="feat-badge" style="background:rgba(88,166,255,.08);border-color:rgba(88,166,255,.16);color:var(--blue)">Canvas · OHLC · Bezier</span>
+      </article>
+
+      <!-- AI Advisor -->
+      <article class="feat-card fade-up">
+        <div class="feat-icon" style="background:rgba(255,209,102,.09);border-color:rgba(255,209,102,.2);color:var(--yellow)" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+        </div>
+        <h3 class="feat-title">AI Market Advisor</h3>
+        <p class="feat-desc">Chat with GPT-4o, Llama 3.1 70B or Mistral Large via GitHub Models. AI gets live access to your portfolio, prices and 1-year history before answering.</p>
+        <span class="feat-badge" style="background:rgba(255,209,102,.08);border-color:rgba(255,209,102,.16);color:var(--yellow)">GPT-4o · Llama · Mistral</span>
+      </article>
+
+      <!-- F&O Option Chain -->
+      <article class="feat-card fade-up">
+        <div class="feat-icon" style="background:rgba(255,107,129,.09);border-color:rgba(255,107,129,.2);color:var(--red)" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M2 9h20M9 9v12"/></svg>
+        </div>
+        <h3 class="feat-title">F&amp;O Option Chain</h3>
+        <p class="feat-desc">Live NIFTY, BANKNIFTY option chains with PCR, max pain, and open interest analysis. Plus FII/DII flow data pulled directly from NSE.</p>
+        <span class="feat-badge" style="background:rgba(255,107,129,.08);border-color:rgba(255,107,129,.16);color:var(--red)">NSE · PCR · Max Pain</span>
+      </article>
+
+      <!-- Portfolio -->
+      <article class="feat-card fade-up">
+        <div class="feat-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        </div>
+        <h3 class="feat-title">Portfolio Tracker</h3>
+        <p class="feat-desc">Import from Groww CSV or edit holdings directly in the browser. Live P&amp;L, XIRR calculation and portfolio returns vs NIFTY50 benchmark.</p>
+        <span class="feat-badge">Groww CSV · XIRR · NIFTY50</span>
+      </article>
+
+      <!-- News -->
+      <article class="feat-card fade-up">
+        <div class="feat-icon" style="background:rgba(88,166,255,.09);border-color:rgba(88,166,255,.2);color:var(--blue)" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v2"/><path d="M18 14H2M18 10H2M18 18H2"/></svg>
+        </div>
+        <h3 class="feat-title">News Aggregator</h3>
+        <p class="feat-desc">Economic Times, MoneyControl and LiveMint — all in one feed. Filter by source, search by symbol. Stock-specific news right next to the chart.</p>
+        <span class="feat-badge" style="background:rgba(88,166,255,.08);border-color:rgba(88,166,255,.16);color:var(--blue)">ET · MC · LiveMint</span>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── CHART PREVIEW ──────────────────────────────────── -->
+<section class="chart-preview" aria-labelledby="chart-heading">
+  <div class="container">
+    <div class="sec-header fade-up">
+      <div class="sec-tag">Live Preview</div>
+      <h2 class="sec-title" id="chart-heading">Charts that feel<br>professional</h2>
+      <p class="sec-desc">Built-in canvas chart engine. No external libraries. Smooth bezier curves, live crosshair, zoom and pan out of the box.</p>
+    </div>
+
+    <div class="chart-wrap fade-up">
+      <div class="chart-hdr">
+        <div class="chart-name-group">
+          <div class="chart-name">
+            <div class="dot-live" style="width:8px;height:8px" aria-hidden="true"></div>
+            NIFTY 50
+          </div>
+          <div class="chart-sub">NSE · Index · Live · Updated 5s ago</div>
+        </div>
+        <div class="chart-right">
+          <div>
+            <div class="chart-price-big" id="livePrice">24,843.25</div>
+            <div class="chart-chg" id="liveChg">▲ +183.40 (+0.74%)</div>
+          </div>
+          <div class="period-row" role="group" aria-label="Chart period">
+            <button class="pbtn" onclick="setPeriod(this,'1D')" aria-pressed="false">1D</button>
+            <button class="pbtn" onclick="setPeriod(this,'1W')" aria-pressed="false">1W</button>
+            <button class="pbtn active" onclick="setPeriod(this,'1M')" aria-pressed="true">1M</button>
+            <button class="pbtn" onclick="setPeriod(this,'1Y')" aria-pressed="false">1Y</button>
+          </div>
+        </div>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="chart" height="250" style="width:100%;display:block" aria-label="NIFTY 50 price chart"></canvas>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── TRUST STRIP ────────────────────────────────────── -->
+<div class="trust" role="region" aria-label="Security and trust">
+  <div class="trust-inner">
+    <div class="trust-item">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      localhost only
+    </div>
+    <div class="trust-item">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      no cloud · no tracking
+    </div>
+    <div class="trust-item">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      your data stays on your machine
+    </div>
+    <div class="trust-item">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+      open source · MIT
+    </div>
+    <div class="trust-item">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      ₹0 subscription
+    </div>
+  </div>
+</div>
+
+<!-- ── TECH STACK ─────────────────────────────────────── -->
+<section class="stack-sec" aria-labelledby="stack-heading">
+  <div class="container">
+    <div class="stack-label" id="stack-heading">Built with</div>
+    <div class="stack-row">
+      <div class="tech-badge"><div class="tech-dot" style="background:#3776AB"></div>Python 3.11</div>
+      <div class="tech-badge"><div class="tech-dot" style="background:#009688"></div>FastAPI</div>
+      <div class="tech-badge"><div class="tech-dot" style="background:#4caf50"></div>uvicorn</div>
+      <div class="tech-badge"><div class="tech-dot" style="background:#00d4aa"></div>Server-Sent Events</div>
+      <div class="tech-badge"><div class="tech-dot" style="background:#58a6ff"></div>GitHub Models</div>
+      <div class="tech-badge"><div class="tech-dot" style="background:#ffd166"></div>Yahoo Finance API</div>
+      <div class="tech-badge"><div class="tech-dot" style="background:#ff9f43"></div>NSE / BSE Data</div>
+      <div class="tech-badge"><div class="tech-dot" style="background:#ff6b81"></div>AMFI MF Data</div>
+      <div class="tech-badge"><div class="tech-dot" style="background:#e6edf3"></div>Canvas Charts</div>
+      <div class="tech-badge"><div class="tech-dot" style="background:#7d8590"></div>httpx · pydantic</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ─────────────────────────────────────────── -->
+<footer>
+  <div class="container">
+    <div class="footer-logo">Market<em>Monitor</em></div>
+    <p>Real-time Indian stock intelligence · Built for serious traders · <a href="/">Launch Dashboard →</a></p>
+    <p style="margin-top:10px;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--bg4)">
+      NSE · BSE · AMFI · GitHub Models · FastAPI · Python · Canvas
+    </p>
+  </div>
+</footer>
+
+<script>
+// ── Ticker ────────────────────────────────────────────────────
+const TICKS = [
+  { s:'NIFTY 50',  p:'24,843.25', c:'+183.40',  pc:'+0.74%', up:true  },
+  { s:'SENSEX',    p:'81,224.75', c:'+542.30',  pc:'+0.67%', up:true  },
+  { s:'RELIANCE',  p:'2,847.50',  c:'+23.15',   pc:'+0.82%', up:true  },
+  { s:'TCS',       p:'3,921.15',  c:'-13.40',   pc:'-0.34%', up:false },
+  { s:'INFY',      p:'1,567.80',  c:'+18.95',   pc:'+1.22%', up:true  },
+  { s:'HDFC BANK', p:'1,721.30',  c:'-8.70',    pc:'-0.50%', up:false },
+  { s:'WIPRO',     p:'487.45',    c:'+5.20',    pc:'+1.08%', up:true  },
+  { s:'ICICI BANK',p:'1,284.60',  c:'+14.80',   pc:'+1.17%', up:true  },
+  { s:'L&T',       p:'3,614.90',  c:'-27.55',   pc:'-0.76%', up:false },
+  { s:'BAJFINANCE',p:'7,124.35',  c:'+87.20',   pc:'+1.24%', up:true  },
+  { s:'NIFTY BANK',p:'52,317.40', c:'+312.75',  pc:'+0.60%', up:true  },
+  { s:'GOLD',      p:'73,240',    c:'+310',     pc:'+0.42%', up:true  },
+  { s:'USD/INR',   p:'83.42',     c:'-0.08',    pc:'-0.10%', up:false },
+  { s:'NIFTY IT',  p:'38,214.60', c:'+245.80',  pc:'+0.65%', up:true  },
+  { s:'HDFCLIFE',  p:'621.80',    c:'-4.15',    pc:'-0.66%', up:false },
+];
+(function buildTicker() {
+  const el = document.getElementById('ticker');
+  const all = [...TICKS, ...TICKS];
+  el.innerHTML = all.map(t => `
+    <div class="tick">
+      <span class="tick-sym">${t.s}</span>
+      <span class="tick-price">${t.p}</span>
+      <span class="${t.up ? 'tick-up' : 'tick-dn'}">${t.up ? '▲' : '▼'} ${t.c} (${t.pc})</span>
+    </div>`).join('');
+})();
+
+// ── Chart Engine ──────────────────────────────────────────────
+const canvas = document.getElementById('chart');
+const ctx    = canvas.getContext('2d');
+
+function genData(pts, base, vol, trend) {
+  const d = []; let v = base;
+  for (let i = 0; i < pts; i++) {
+    v += (Math.random() - 0.46) * vol + trend;
+    v  = Math.max(base * .88, Math.min(base * 1.18, v));
+    d.push(v);
+  }
+  return d;
+}
+
+let data = genData(30, 23800, 90, 2.2);
+
+const X_LABELS = {
+  '1D': ['9:15','10:00','11:00','12:00','13:00','14:00','15:30'],
+  '1W': ['Mon','Tue','Wed','Thu','Fri','Sat','Today'],
+  '1M': ['1 May','7 May','14 May','21 May','28 May','4 Jun'],
+  '1Y': ['Jun','Aug','Oct','Dec','Feb','Apr','Jun'],
+};
+let curPeriod = '1M';
+
+function drawChart(d) {
+  const W  = canvas.parentElement.clientWidth;
+  const H  = 250;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.scale(dpr, dpr);
+
+  const PAD = { t:18, r:14, b:34, l:68 };
+  const pw = W - PAD.l - PAD.r;
+  const ph = H - PAD.t - PAD.b;
+
+  const mn = Math.min(...d);
+  const mx = Math.max(...d);
+  const rng = mx - mn || 1;
+
+  const xp = i => PAD.l + (i / (d.length - 1)) * pw;
+  const yp = v => PAD.t + ph - ((v - mn) / rng) * ph;
+
+  // BG
+  ctx.fillStyle = '#1c2128';
+  ctx.fillRect(0, 0, W, H);
+
+  // Horizontal grid
+  for (let g = 0; g <= 4; g++) {
+    const y   = PAD.t + (g / 4) * ph;
+    const val = mx - (g / 4) * rng;
+    ctx.strokeStyle = 'rgba(48,54,61,.7)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(PAD.l, y); ctx.lineTo(W - PAD.r, y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#7d8590';
+    ctx.font = '10px IBM Plex Mono, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(val.toLocaleString('en-IN', { maximumFractionDigits: 0 }), PAD.l - 6, y + 3.5);
+  }
+
+  // Vertical grid
+  const xl = X_LABELS[curPeriod] || X_LABELS['1M'];
+  ctx.strokeStyle = 'rgba(48,54,61,.4)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2, 6]);
+  xl.forEach((lbl, i) => {
+    const xi = Math.round(i / (xl.length - 1) * (d.length - 1));
+    const x  = xp(xi);
+    ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + ph); ctx.stroke();
+    ctx.fillStyle = '#7d8590';
+    ctx.textAlign = 'center';
+    ctx.fillText(lbl, x, H - 8);
+  });
+  ctx.setLineDash([]);
+
+  // Gradient fill
+  const grad = ctx.createLinearGradient(0, PAD.t, 0, PAD.t + ph);
+  grad.addColorStop(0,   'rgba(0,212,170,.22)');
+  grad.addColorStop(.55, 'rgba(0,212,170,.06)');
+  grad.addColorStop(1,   'rgba(0,212,170,.00)');
+
+  ctx.beginPath();
+  ctx.moveTo(xp(0), yp(d[0]));
+  for (let i = 1; i < d.length; i++) {
+    const cx = (xp(i-1) + xp(i)) / 2;
+    ctx.bezierCurveTo(cx, yp(d[i-1]), cx, yp(d[i]), xp(i), yp(d[i]));
+  }
+  ctx.lineTo(xp(d.length - 1), PAD.t + ph);
+  ctx.lineTo(xp(0), PAD.t + ph);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line stroke
+  ctx.beginPath();
+  ctx.moveTo(xp(0), yp(d[0]));
+  for (let i = 1; i < d.length; i++) {
+    const cx = (xp(i-1) + xp(i)) / 2;
+    ctx.bezierCurveTo(cx, yp(d[i-1]), cx, yp(d[i]), xp(i), yp(d[i]));
+  }
+  ctx.strokeStyle = '#00d4aa';
+  ctx.lineWidth   = 2.2;
+  ctx.shadowColor = 'rgba(0,212,170,.45)';
+  ctx.shadowBlur  = 10;
+  ctx.stroke();
+  ctx.shadowBlur  = 0;
+
+  // Endpoint dot
+  const lx = xp(d.length - 1);
+  const ly = yp(d[d.length - 1]);
+  ctx.beginPath();
+  ctx.arc(lx, ly, 5.5, 0, Math.PI * 2);
+  ctx.fillStyle = '#00d4aa';
+  ctx.shadowColor = 'rgba(0,212,170,.65)';
+  ctx.shadowBlur  = 14;
+  ctx.fill();
+  ctx.shadowBlur  = 0;
+}
+
+drawChart(data);
+window.addEventListener('resize', () => drawChart(data));
+
+function setPeriod(btn, period) {
+  document.querySelectorAll('.pbtn').forEach(b => {
+    b.classList.remove('active');
+    b.setAttribute('aria-pressed', 'false');
+  });
+  btn.classList.add('active');
+  btn.setAttribute('aria-pressed', 'true');
+  curPeriod = period;
+  const cfg = { '1D':[78,18,0.4], '1W':[7,55,1.8], '1M':[30,90,2.2], '1Y':[90,130,3.5] };
+  const [pts, vol, trend] = cfg[period];
+  data = genData(pts, 23800, vol, trend);
+  drawChart(data);
+}
+
+// ── Live price tick ───────────────────────────────────────────
+let base = 24843.25;
+const OPEN = 24660;
+function tickPrice() {
+  base += (Math.random() - 0.47) * 9;
+  const chg = base - OPEN;
+  const pct  = (chg / OPEN * 100);
+  const up   = chg >= 0;
+  const fmt  = v => Math.abs(v).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  document.getElementById('livePrice').textContent =
+    base.toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  const chgEl = document.getElementById('liveChg');
+  chgEl.textContent = `${up ? '▲' : '▼'} ${up ? '+' : '-'}${fmt(chg)} (${up ? '+' : '-'}${Math.abs(pct).toFixed(2)}%)`;
+  chgEl.style.color = up ? '#00d4aa' : '#ff6b81';
+}
+setInterval(tickPrice, 3500);
+
+// ── Fade-up on scroll ─────────────────────────────────────────
+const obs = new IntersectionObserver(entries => {
+  entries.forEach((e, i) => {
+    if (e.isIntersecting) e.target.classList.add('visible');
+  });
+}, { threshold:.08, rootMargin:'0px 0px -30px 0px' });
+
+document.querySelectorAll('.fade-up').forEach((el, i) => {
+  el.style.transitionDelay = `${(i % 3) * 75}ms`;
+  obs.observe(el);
+});
+</script>
+</body>
+</html>
