@@ -641,6 +641,10 @@ pre{background:rgba(0,0,0,.35);padding:10px;border-radius:6px;overflow-x:auto;fo
 a{color:var(--accent)}
 .live-indicator{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--accent)}
 
+.pick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
+.pick-card{cursor:pointer;transition:border-color .2s,transform .15s}
+.pick-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.msel option{background:var(--bg2)}
 @media(max-width:900px){
   .two,.three,.clayout{grid-template-columns:1fr}
   .cside{display:none}
@@ -665,20 +669,24 @@ a{color:var(--accent)}
     <span class="badge" id="oModel">—</span>
     <span id="clock" style="font-size:10px;color:var(--muted)"></span>
     <span class="live-indicator"><span class="dot live"></span>LIVE</span>
+    <input type="text" id="hdrSearch" class="ci" placeholder="Analyse any NSE symbol…" title="Type any NSE symbol (e.g. PARAGMILK) and press Enter for the full engine report"
+      style="width:170px;min-height:28px;height:28px;padding:2px 9px;font-size:11px"
+      onkeydown="if(event.key==='Enter'){const v=this.value.trim().toUpperCase(); if(v){showStockPopup(v); this.value='';}}" />
     <button class="rbtn" onclick="refreshAll()">↻</button>
   </div>
 </div>
 
 <!-- ── Tabs ── -->
 <div class="tabs">
-  <div class="tab active" onclick="go('dash')">Dashboard</div>
-  <div class="tab" onclick="go('portfolio')">Portfolio</div>
-  <div class="tab" onclick="go('charts')">Charts</div>
-  <div class="tab" onclick="go('market')">Market</div>
-  <div class="tab" onclick="go('news')">News</div>
-  <div class="tab" onclick="go('chat')">AI Chat</div>
-  <div class="tab" onclick="go('screener')">Screener</div>
-  <div class="tab" onclick="go('settings')">Settings</div>
+  <div class="tab active" data-tab="dash" onclick="go('dash')">Dashboard</div>
+  <div class="tab" data-tab="ideas" onclick="go('ideas')">🎯 Buy Ideas</div>
+  <div class="tab" data-tab="portfolio" onclick="go('portfolio')">Portfolio</div>
+  <div class="tab" data-tab="charts" onclick="go('charts')">Charts</div>
+  <div class="tab" data-tab="market" onclick="go('market')">Market</div>
+  <div class="tab" data-tab="news" onclick="go('news')">News</div>
+  <div class="tab" data-tab="chat" onclick="go('chat')">AI Chat</div>
+  <div class="tab" data-tab="screener" onclick="go('screener')">Screener</div>
+  <div class="tab" data-tab="settings" onclick="go('settings')">Settings</div>
 </div>
 
 <div class="main">
@@ -686,6 +694,7 @@ a{color:var(--accent)}
 <!-- ════ DASHBOARD ════ -->
 <div id="tab-dash" class="tc active">
   <div id="briefingBox"></div>
+  <div id="dashIdeas"></div>
   <div id="idxGrid" class="idx-grid"></div>
   <div id="sgrid" class="sgrid"><div class="ld"><div class="sp"></div>Loading…</div></div>
   <div class="two gap">
@@ -699,6 +708,33 @@ a{color:var(--accent)}
   <div class="card gap"><div class="ct">Market News</div><div id="dNews"></div></div>
 </div>
 
+<!-- ════ BUY IDEAS ════ -->
+<div id="tab-ideas" class="tc">
+  <div class="row" style="margin-bottom:10px">
+    <div>
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:15px;color:#fff">🎯 Buy Ideas — latest scan</div>
+      <div id="ideasMeta" style="font-size:10px;color:var(--muted)">—</div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <select id="ideasUniverse" class="msel" style="margin:0;min-width:180px" title="Universe to scan"></select>
+      <button class="scan-btn" id="ideasRunBtn" onclick="runIdeasScan()">▶ Run scan now</button>
+      <button class="rbtn" onclick="emailLatestScan()" style="padding:6px 12px" title="Send the latest report to your configured e-mail">✉ E-mail me this</button>
+      <button class="rbtn" onclick="loadIdeas(true)" style="padding:6px 12px">↻</button>
+    </div>
+  </div>
+  <div id="ideasStatus" style="font-size:11px;color:var(--muted);margin-bottom:10px"></div>
+  <div id="ideasRegime"></div>
+  <div id="ideasPicks"><div class="ld"><div class="sp"></div>Loading latest scan…</div></div>
+  <div class="two gap">
+    <div class="card"><div class="ct">👀 Watch-list — close to a trigger</div><div id="ideasWatch"></div></div>
+    <div class="card"><div class="ct">💼 Your holdings — action plan</div><div id="ideasPortfolio"></div></div>
+  </div>
+  <div class="card gap">
+    <div class="row"><div class="ct" style="margin:0">📜 Scan history</div><span id="ideasSched" style="font-size:10px;color:var(--muted)"></span></div>
+    <div id="ideasHistory"></div>
+  </div>
+</div>
+
 <!-- ════ PORTFOLIO ════ -->
 <div id="tab-portfolio" class="tc">
   <div class="card">
@@ -709,7 +745,7 @@ a{color:var(--accent)}
     <div id="sTable"><div class="ld"><div class="sp"></div>Fetching…</div></div>
   </div>
   <div class="card gap">
-    <div class="warn-box">💡 Update holdings → edit <code>data/holdings.json</code> or drop CSV in <code>imports/</code> folder</div>
+    <div class="warn-box">💡 Update holdings → <a href="/edit_holdings.html" target="_blank">open the Holdings Editor</a>, edit <code>data/holdings.json</code>, or drop a Groww CSV in <code>imports/</code></div>
     <div class="row"><div class="ct" style="margin:0">Mutual Fund Holdings</div><span id="mUpd" style="font-size:10px;color:var(--muted)"></span></div>
     <div id="mTable"><div class="ld"><div class="sp"></div>Fetching NAV…</div></div>
   </div>
@@ -817,11 +853,9 @@ a{color:var(--accent)}
         <span class="dot live"></span>
         AI Advisor &nbsp;
         <span class="badge" id="cBadge">—</span>
-        <select class="msel" id="modelSel">
-          <option value="gpt-4o">GPT-4o (GitHub)</option>
-          <option value="gpt-4o-mini">GPT-4o Mini</option>
-          <option value="Meta-Llama-3.1-70B-Instruct">Llama 3.1 70B</option>
-          <option value="Mistral-large">Mistral Large</option>
+        <span id="chatLocalNote" style="font-size:10px;color:var(--muted)"></span>
+        <select class="msel" id="modelSel" title="Model (configure the provider in Settings)">
+          <option value="auto">Provider default</option>
         </select>
       </div>
       <div class="cmsgs" id="cMsgs">
@@ -843,8 +877,10 @@ a{color:var(--accent)}
       <div class="card" style="padding:12px">
         <div class="ct">Quick Questions</div>
         <div style="display:flex;flex-direction:column;gap:5px">
+          <div class="sug" onclick="ask(this)">What should I buy today? Scan Nifty 100 and give me the 3 best setups with entry, stop and targets</div>
           <div class="sug" onclick="ask(this)">Give me today's morning briefing</div>
-          <div class="sug" onclick="ask(this)">Technical analysis for all my stocks</div>
+          <div class="sug" onclick="ask(this)">Full analysis of my holdings — hold, add or exit each one?</div>
+          <div class="sug" onclick="ask(this)">Which banking stocks are breaking out right now?</div>
           <div class="sug" onclick="ask(this)">How has Parag Parikh Flexi Cap performed in last 1 year?</div>
           <div class="sug" onclick="ask(this)">How has INFY performed in last 1 year?</div>
           <div class="sug" onclick="ask(this)">Which of my stocks are overbought right now?</div>
@@ -858,12 +894,12 @@ a{color:var(--accent)}
       <div class="card" style="padding:12px">
         <div class="ct">AI Capabilities</div>
         <div style="font-size:11px;color:var(--muted);line-height:2">
-          <div>✓ Live NSE prices</div>
-          <div>✓ 1Y price history</div>
-          <div>✓ SMA / RSI / MACD</div>
+          <div>✓ Live NSE prices &amp; history</div>
+          <div>✓ 30-indicator engine + trade plans</div>
+          <div>✓ Runs the signal scanner for you</div>
+          <div>✓ Option chain, FII/DII flows</div>
           <div>✓ Stock-specific news</div>
-          <div>✓ Market overview</div>
-          <div>✓ Your live P&amp;L</div>
+          <div>✓ Your live P&amp;L &amp; latest scan</div>
         </div>
       </div>
     </div>
@@ -883,6 +919,7 @@ a{color:var(--accent)}
     <div class="stab" onclick="scrGo('indices')">🗂 All Indices</div>
     <div class="stab" onclick="scrGo('signals')">🔮 Signal Scanner</div>
     <div class="stab" onclick="scrGo('metals')">🥇 Metals</div>
+    <div class="stab" onclick="scrGo('tv')">📺 TradingView</div>
   </div>
 
   <!-- ── STOCKS ── -->
@@ -1085,18 +1122,16 @@ a{color:var(--accent)}
     <div class="row" style="margin-bottom:12px">
       <div>
         <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;color:#fff">Signal Scanner</div>
-        <div style="font-size:10px;color:var(--muted)">15 institutional-grade indicators · RSI · MACD · Ichimoku · ADX · OBV · Fibonacci &amp; more</div>
+        <div style="font-size:10px;color:var(--muted)">Engine v4 · 30+ indicators · Supertrend · Squeeze · Ichimoku · RS vs Nifty · Minervini template · trade plan + self-backtest forecast per stock</div>
       </div>
     </div>
-    <!-- Preset lists -->
-    <div class="fpills" id="scanListPills">
-      <button class="fpill active" onclick="setScanList('nifty50')">Nifty 50</button>
-      <button class="fpill" onclick="setScanList('nifty100')">Nifty 100</button>
-      <button class="fpill" onclick="setScanList('midcap')">Midcap 60</button>
-      <button class="fpill" onclick="setScanList('banking')">Banking</button>
-      <button class="fpill" onclick="setScanList('it')">IT</button>
-      <button class="fpill" onclick="setScanList('pharma')">Pharma</button>
-      <button class="fpill" onclick="setScanList('custom')">Custom (enter below)</button>
+    <!-- Universe + options -->
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <select id="scanUniverse" class="msel" style="margin:0;min-width:200px" onchange="onScanUniverseChange()"></select>
+      <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px" title="Runs the self-backtest forecast for every stock (≈3x slower)"><input type="checkbox" id="scanForecast" checked> Forecast</label>
+      <button class="scan-btn" id="scanRunBtn" onclick="runSignalScan()">▶ Run Scan</button>
+      <button class="rbtn" onclick="exportScanCSV()" style="padding:6px 12px">⬇ CSV</button>
+      <div id="scanStatus" style="font-size:11px;color:var(--muted)"></div>
     </div>
     <!-- Custom input -->
     <div id="scanCustomRow" style="display:none;margin-bottom:10px">
@@ -1104,39 +1139,44 @@ a{color:var(--accent)}
         style="width:100%;max-width:500px;min-height:32px;height:32px;padding:4px 10px;font-size:11px"
         placeholder="Enter symbols separated by commas e.g. TCS,INFY,HDFCBANK" />
     </div>
-    <!-- Filter by verdict -->
-    <div class="fpills" style="margin-bottom:14px">
-      <button class="fpill active" onclick="setScanFilter('all')">All</button>
-      <button class="fpill" onclick="setScanFilter('Strong Buy')" style="color:var(--accent);border-color:rgba(0,212,170,.4)">Strong Buy</button>
-      <button class="fpill" onclick="setScanFilter('Buy')" style="color:#4caf50;border-color:rgba(76,175,80,.4)">Buy</button>
-      <button class="fpill" onclick="setScanFilter('Neutral')" style="color:var(--yellow);border-color:rgba(255,209,102,.4)">Neutral</button>
-      <button class="fpill" onclick="setScanFilter('Sell')" style="color:#ff9800;border-color:rgba(255,152,0,.4)">Sell</button>
-      <button class="fpill" onclick="setScanFilter('Strong Sell')" style="color:#ff4d6d;border-color:rgba(255,77,109,.4)">Strong Sell</button>
+    <!-- Filter by verdict / setup -->
+    <div class="fpills" id="scanVerdictPills" style="margin-bottom:8px">
+      <button class="fpill active" data-v="all" onclick="setScanFilter('all')">All</button>
+      <button class="fpill" data-v="Strong Buy" onclick="setScanFilter('Strong Buy')" style="color:var(--accent);border-color:rgba(0,212,170,.4)">Strong Buy</button>
+      <button class="fpill" data-v="Buy" onclick="setScanFilter('Buy')" style="color:#4caf50;border-color:rgba(76,175,80,.4)">Buy</button>
+      <button class="fpill" data-v="Neutral" onclick="setScanFilter('Neutral')" style="color:var(--yellow);border-color:rgba(255,209,102,.4)">Neutral</button>
+      <button class="fpill" data-v="Sell" onclick="setScanFilter('Sell')" style="color:#ff9800;border-color:rgba(255,152,0,.4)">Sell</button>
+      <button class="fpill" data-v="Strong Sell" onclick="setScanFilter('Strong Sell')" style="color:#ff4d6d;border-color:rgba(255,77,109,.4)">Strong Sell</button>
+      <span style="width:1px;background:var(--border);margin:0 4px"></span>
+      <button class="fpill" data-v="setup:Breakout" onclick="setScanFilter('setup:Breakout')">🚀 Breakouts</button>
+      <button class="fpill" data-v="setup:Pullback Buy" onclick="setScanFilter('setup:Pullback Buy')">🎯 Pullbacks</button>
+      <button class="fpill" data-v="setup:Momentum Leader" onclick="setScanFilter('setup:Momentum Leader')">🏆 Leaders</button>
+      <button class="fpill" data-v="setup:Oversold Reversal" onclick="setScanFilter('setup:Oversold Reversal')">🔄 Reversals</button>
     </div>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
-      <button class="scan-btn" id="scanRunBtn" onclick="runSignalScan()">Run Scan</button>
-      <div id="scanStatus" style="font-size:11px;color:var(--muted)"></div>
-    </div>
+    <div id="scanProgress" style="height:3px;background:var(--border);border-radius:2px;margin-bottom:10px;overflow:hidden;display:none"><div id="scanProgressBar" style="height:100%;width:0;background:var(--accent);transition:width .3s"></div></div>
     <!-- Results table -->
     <div class="card" style="padding:0;overflow:hidden">
       <div style="overflow-x:auto;max-height:75vh;overflow-y:auto">
         <table class="stbl" id="scanTable">
           <thead>
             <tr>
-              <th>Symbol</th>
-              <th style="text-align:center">Signal</th>
-              <th style="text-align:right">Score</th>
-              <th style="text-align:right">Price</th>
-              <th style="text-align:right">RSI</th>
-              <th style="text-align:right">MACD</th>
-              <th style="text-align:right">ADX</th>
-              <th style="text-align:right">Support</th>
-              <th style="text-align:right">Resistance</th>
-              <th style="text-align:right">Bull Target</th>
-              <th style="text-align:right">52W Pos%</th>
+              <th onclick="sortScan('symbol')" data-col="symbol">Symbol <span class="sort-icon">↕</span></th>
+              <th onclick="sortScan('score')" data-col="score" style="text-align:center">Signal <span class="sort-icon">↕</span></th>
+              <th onclick="sortScan('tv')" data-col="tv" style="text-align:center" title="TradingView technical rating (independent second opinion)">TV <span class="sort-icon">↕</span></th>
+              <th onclick="sortScan('setup')" data-col="setup">Setup <span class="sort-icon">↕</span></th>
+              <th onclick="sortScan('price')" data-col="price" style="text-align:right">Price <span class="sort-icon">↕</span></th>
+              <th onclick="sortScan('rsi')" data-col="rsi" style="text-align:right">RSI <span class="sort-icon">↕</span></th>
+              <th onclick="sortScan('adx')" data-col="adx" style="text-align:right">ADX <span class="sort-icon">↕</span></th>
+              <th onclick="sortScan('rs')" data-col="rs" style="text-align:right" title="Excess return vs Nifty, 3 months">RS 3M <span class="sort-icon">↕</span></th>
+              <th onclick="sortScan('stop')" data-col="stop" style="text-align:right">Stop <span class="sort-icon">↕</span></th>
+              <th onclick="sortScan('t1')" data-col="t1" style="text-align:right">Target 1 <span class="sort-icon">↕</span></th>
+              <th onclick="sortScan('rr')" data-col="rr" style="text-align:right">R:R <span class="sort-icon">↕</span></th>
+              <th onclick="sortScan('exp')" data-col="exp" style="text-align:right" title="Average 21-session return on this stock's own similar-scoring days in the past year">Model 1M <span class="sort-icon">↕</span></th>
+              <th onclick="sortScan('hit')" data-col="hit" style="text-align:right">Hit% <span class="sort-icon">↕</span></th>
+              <th onclick="sortScan('pos52')" data-col="pos52" style="text-align:right">52W% <span class="sort-icon">↕</span></th>
             </tr>
           </thead>
-          <tbody id="scanBody"><tr><td colspan="11" style="text-align:center;padding:32px;color:var(--muted);font-size:12px">Click "Run Scan" to analyse stocks with 15 technical indicators</td></tr></tbody>
+          <tbody id="scanBody"><tr><td colspan="14" style="text-align:center;padding:32px;color:var(--muted);font-size:12px">Pick a universe and click "Run Scan" — each stock gets a score, setup, trade plan and forecast. Click a row for the full breakdown.</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -1182,28 +1222,77 @@ a{color:var(--accent)}
     </div>
   </div>
 
+  <!-- ── TRADINGVIEW ── -->
+  <div id="ssec-tv" class="ssec">
+    <div class="row" style="margin-bottom:8px">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;color:#fff">TradingView Screener — NSE</div>
+        <div style="font-size:10px;color:var(--muted)" id="tvMeta">TradingView's own technical rating + indicators for ~700 NSE stocks · no login · 5-min cache</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <select id="tvMcap" class="msel" style="margin:0" onchange="loadTvScreen()">
+          <option value="1000">Mcap ≥ ₹1,000 Cr</option><option value="5000">≥ ₹5,000 Cr</option><option value="20000">≥ ₹20,000 Cr</option><option value="500">≥ ₹500 Cr</option>
+        </select>
+        <input type="text" id="tvSearch" class="ci" style="width:170px;min-height:32px;height:32px;padding:4px 10px;font-size:11px" placeholder="Filter symbol / sector…" oninput="renderTvTable()">
+        <button class="rbtn" onclick="loadTvScreen(null,true)">↻</button>
+      </div>
+    </div>
+    <div class="fpills" id="tvPresetPills"></div>
+    <div id="tvDesc" style="font-size:11px;color:var(--muted);margin-bottom:8px"></div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="overflow-x:auto;max-height:75vh;overflow-y:auto">
+        <table class="stbl" id="tvTable">
+          <thead><tr>
+            <th onclick="sortTv('symbol')" data-col="symbol">Symbol <span class="sort-icon">↕</span></th>
+            <th onclick="sortTv('rating')" data-col="rating" style="text-align:center">TV Rating <span class="sort-icon">↕</span></th>
+            <th onclick="sortTv('price')" data-col="price" style="text-align:right">Price <span class="sort-icon">↕</span></th>
+            <th onclick="sortTv('change_pct')" data-col="change_pct" style="text-align:right">Chg% <span class="sort-icon">↕</span></th>
+            <th onclick="sortTv('rsi')" data-col="rsi" style="text-align:right">RSI <span class="sort-icon">↕</span></th>
+            <th onclick="sortTv('adx')" data-col="adx" style="text-align:right">ADX <span class="sort-icon">↕</span></th>
+            <th onclick="sortTv('rel_volume')" data-col="rel_volume" style="text-align:right">Rel Vol <span class="sort-icon">↕</span></th>
+            <th onclick="sortTv('perf_1m')" data-col="perf_1m" style="text-align:right">1M <span class="sort-icon">↕</span></th>
+            <th onclick="sortTv('perf_3m')" data-col="perf_3m" style="text-align:right">3M <span class="sort-icon">↕</span></th>
+            <th onclick="sortTv('perf_1y')" data-col="perf_1y" style="text-align:right">1Y <span class="sort-icon">↕</span></th>
+            <th onclick="sortTv('dist52')" data-col="dist52" style="text-align:right" title="Distance below 52-week high">vs 52W-H <span class="sort-icon">↕</span></th>
+            <th onclick="sortTv('market_cap_cr')" data-col="market_cap_cr" style="text-align:right">Mcap ₹Cr <span class="sort-icon">↕</span></th>
+            <th onclick="sortTv('sector')" data-col="sector">Sector <span class="sort-icon">↕</span></th>
+          </tr></thead>
+          <tbody id="tvBody"><tr><td colspan="13" class="ld"><div class="sp"></div>Loading TradingView data…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /screener -->
 
 <!-- ════ SETTINGS ════ -->
 <div id="tab-settings" class="tc">
   <div class="two">
     <div class="card">
-      <div class="ct">GitHub Models Setup</div>
-      <div style="font-size:12px;line-height:1.9;color:var(--text)">
-        <strong style="color:#fff">Get a GitHub PAT</strong>
-        <pre>GitHub.com → Settings → Developer Settings
-→ Personal Access Tokens → Fine-grained
-→ Generate new token (no permissions needed)</pre>
-        <strong style="color:#fff">Add to .env file</strong>
-        <pre>GITHUB_TOKEN=github_pat_xxxxxxxxxxxx</pre>
+      <div class="ct">🤖 AI Chat provider</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:10px">
+        GitHub Models was shut down on 30 Jul 2026, so a free key from another provider is needed. <b style="color:var(--text)">Groq</b> and <b style="color:var(--text)">Google Gemini</b> hand out a key instantly after a GitHub/Google login — no card. Saved locally in <code>data/llm_config.json</code>, active immediately.
+      </div>
+      <div class="two" style="gap:8px">
+        <div><label class="sl">Provider</label><select id="llmPreset" class="msel" style="margin:0;width:100%;height:34px" onchange="onLlmPreset()"></select></div>
+        <div><label class="sl">Model</label><input class="ci" id="llmModel" list="llmModels" placeholder="model id" style="width:100%;min-height:34px;height:34px"><datalist id="llmModels"></datalist></div>
+        <div><label class="sl">API key</label><input class="ci" id="llmKey" type="password" placeholder="paste key" style="width:100%;min-height:34px;height:34px"></div>
+        <div><label class="sl">Base URL</label><input class="ci" id="llmBase" placeholder="https://…/v1" style="width:100%;min-height:34px;height:34px"></div>
+      </div>
+      <div id="llmNote" style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.5"></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">
+        <button class="scan-btn" onclick="saveLlmConfig()">💾 Save</button>
+        <button class="rbtn" onclick="testLlm()" style="padding:6px 12px">Test chat</button>
+        <span id="llmMsg" style="font-size:11px;color:var(--muted)"></span>
       </div>
       <div id="hDiv" style="margin-top:12px"><div class="ld"><div class="sp"></div>Checking…</div></div>
     </div>
     <div class="card">
-      <div class="ct">Import Holdings</div>
+      <div class="ct">Holdings</div>
       <div style="font-size:12px;line-height:1.9;color:var(--text)">
-        <strong style="color:#fff">Auto-import (easiest)</strong><br>
-        Drop CSV files into <code>imports/</code> folder → restart app<br><br>
+        <a href="/edit_holdings.html" target="_blank" class="scan-btn" style="display:inline-block;text-decoration:none;margin-bottom:8px">✎ Open Holdings Editor</a><br>
+        <strong style="color:#fff">Auto-import from Groww</strong><br>
+        Drop CSV files into <code>imports/</code> folder → restart app<br>
         <strong style="color:#fff">Manual import</strong>
         <pre>python scripts\parse_groww.py --auto</pre>
         <strong style="color:#fff">Find MF scheme codes</strong><br>
@@ -1211,6 +1300,74 @@ a{color:var(--accent)}
       </div>
     </div>
   </div>
+
+  <!-- E-mail alerts -->
+  <div class="card gap">
+    <div class="row">
+      <div class="ct" style="margin:0">✉ Scheduled scans &amp; e-mail alerts</div>
+      <span id="alertSched" style="font-size:10px;color:var(--muted)"></span>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.6">
+      Twice a day (pre-open plan &amp; post-close review) the engine scans your chosen universe, ranks the setups, analyses your holdings and e-mails you the
+      buys with entry / stop / targets / projected profit. Runs while this dashboard is open; a slot missed because the laptop was off runs as soon as it is back on.
+      To also run without the dashboard, register a Windows task: <code>powershell -ExecutionPolicy Bypass -File scripts\install_scheduler.ps1</code>
+    </div>
+    <div class="three" style="gap:10px">
+      <div>
+        <label class="sl">Recipient e-mail</label>
+        <input class="ci" id="alTo" placeholder="you@example.com" style="width:100%;min-height:34px;height:34px">
+      </div>
+      <div>
+        <label class="sl">SMTP user (Gmail address)</label>
+        <input class="ci" id="alUser" placeholder="you@gmail.com" style="width:100%;min-height:34px;height:34px">
+      </div>
+      <div>
+        <label class="sl">SMTP password / Gmail App Password</label>
+        <input class="ci" id="alPass" type="password" placeholder="16-char app password" style="width:100%;min-height:34px;height:34px">
+      </div>
+      <div>
+        <label class="sl">SMTP host</label>
+        <input class="ci" id="alHost" placeholder="smtp.gmail.com" style="width:100%;min-height:34px;height:34px">
+      </div>
+      <div>
+        <label class="sl">SMTP port (587 STARTTLS / 465 SSL)</label>
+        <input class="ci" id="alPort" placeholder="587" style="width:100%;min-height:34px;height:34px">
+      </div>
+      <div>
+        <label class="sl">Scan times (IST, comma-separated)</label>
+        <input class="ci" id="alTimes" placeholder="08:45, 15:45" style="width:100%;min-height:34px;height:34px">
+      </div>
+      <div>
+        <label class="sl">Universe</label>
+        <select id="alUniverse" class="msel" style="margin:0;width:100%;height:34px"></select>
+      </div>
+      <div>
+        <label class="sl">Min score for a "buy" (0-100)</label>
+        <input class="ci" id="alMin" placeholder="65" style="width:100%;min-height:34px;height:34px">
+      </div>
+      <div>
+        <label class="sl">Capital for position sizing (₹)</label>
+        <input class="ci" id="alCap" placeholder="100000" style="width:100%;min-height:34px;height:34px">
+      </div>
+    </div>
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:12px;font-size:11px">
+      <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="alEnabled"> Scheduled scans on</label>
+      <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="alEmail"> E-mail the report</label>
+      <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="alWeekdays"> Weekdays only</label>
+      <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="alPortfolio"> Include my holdings</label>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px">
+      <button class="scan-btn" onclick="saveAlertConfig()">💾 Save</button>
+      <button class="rbtn" onclick="testAlertEmail()" style="padding:6px 12px">Send test e-mail</button>
+      <button class="rbtn" onclick="go('ideas');runIdeasScan()" style="padding:6px 12px">Run a scan now</button>
+      <span id="alMsg" style="font-size:11px;color:var(--muted)"></span>
+    </div>
+    <div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.6">
+      <b style="color:var(--yellow)">Gmail needs an App Password, not your normal password.</b> Turn on 2-Step Verification at <a href="https://myaccount.google.com/security" target="_blank" rel="noopener">myaccount.google.com/security</a>, then create the 16-letter code at <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">myaccount.google.com/apppasswords</a> and paste it above (spaces are fine).
+      Outlook/Hotmail: smtp.office365.com : 587. Yahoo: smtp.mail.yahoo.com : 465. Secrets are stored locally in <code>data/alerts_config.json</code>.
+    </div>
+  </div>
+
   <div class="card gap">
     <div class="ct">Data Sources</div>
     <table class="tbl">
@@ -1221,7 +1378,10 @@ a{color:var(--accent)}
         <tr><td>ET Markets RSS</td><td>Market news</td><td>On refresh</td></tr>
         <tr><td>MoneyControl RSS</td><td>Market news</td><td>On refresh</td></tr>
         <tr><td>LiveMint RSS</td><td>Business news</td><td>On refresh</td></tr>
-        <tr><td>GitHub Models (gpt-4o)</td><td>AI analysis with tool-calling</td><td>On demand</td></tr>
+        <tr><td>GitHub Models (gpt-4o / 4.1)</td><td>AI analysis with tool-calling (scanner, engine, F&amp;O)</td><td>On demand</td></tr>
+        <tr><td>NSE India (public API)</td><td>Option chain, FII/DII, all indices</td><td>60 s cache</td></tr>
+        <tr><td>Engine v4 (local, pure Python)</td><td>30+ indicators, trade plans, self-backtest forecast</td><td>2Y daily, 10 min cache</td></tr>
+        <tr><td>Your SMTP server</td><td>Scheduled e-mail briefings</td><td>Twice daily</td></tr>
       </tbody>
     </table>
   </div>
@@ -1231,7 +1391,7 @@ a{color:var(--accent)}
 
 <script>
 'use strict';
-const API = 'http://localhost:8080';
+const API = location.protocol.startsWith('http') ? location.origin : 'http://localhost:8080';
 
 // ── State ──────────────────────────────────────────────────────────────────
 let pCache        = null;
@@ -1278,14 +1438,15 @@ const fmtMsg = t => esc(t)
 })();
 
 // ── Tabs ───────────────────────────────────────────────────────────────────
-const TAB_IDS = ['dash','portfolio','charts','market','news','chat','screener','settings'];
 function go(name) {
-  document.querySelectorAll('.tab').forEach((t,i) =>
-    t.classList.toggle('active', TAB_IDS[i] === name));
+  document.querySelectorAll('.tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.tc').forEach(c => c.classList.remove('active'));
   const tabEl = document.getElementById('tab-' + name);
   if(tabEl) tabEl.classList.add('active');
+  try { localStorage.setItem('mm_tab', name); } catch(_) {}
 
+  if(name === 'ideas') loadIdeas();
   if(name === 'news'    && !document.querySelector('#ngrid .nhl')) loadNews();
   if(name === 'market') loadMarket();
   if(name === 'screener') initScreener();
@@ -1294,7 +1455,7 @@ function go(name) {
     // before we measure element widths for chart creation
     setTimeout(() => initChartTab(), 60);
   }
-  if(name === 'settings') checkHealth();
+  if(name === 'settings') { checkHealth(); loadAlertConfig(); loadLlmConfig(); }
 }
 
 // ── SSE (real-time portfolio) ──────────────────────────────────────────────
@@ -1335,15 +1496,15 @@ async function checkHealth() {
     const dot = document.getElementById('oDot');
     if(dot) dot.className = 'dot '+(ok?'live':'err');
     const oStatus = document.getElementById('oStatus');
-    if(oStatus) oStatus.textContent = ok ? 'live' : 'no token';
+    if(oStatus) oStatus.textContent = ok ? ('ai · ' + (d.provider || 'live')) : 'ai offline';
     const oModel = document.getElementById('oModel');
     if(oModel) oModel.textContent = d.active_model || '—';
     const cBadge = document.getElementById('cBadge');
     if(cBadge){ cBadge.textContent = d.active_model||'not connected'; cBadge.className='badge'+(ok?'':' warn'); }
     const hDiv = document.getElementById('hDiv');
     if(hDiv) hDiv.innerHTML = ok
-      ? `<div style="font-size:11px;color:var(--accent)">✓ Connected — ${d.active_model} via GitHub Models</div>`
-      : `<div class="errc">${!d.token_set?'GITHUB_TOKEN not set in .env — see setup below':'Token set but cannot connect. Check internet / token permissions.'}</div>`;
+      ? `<div style="font-size:11px;color:var(--accent)">✓ Connected — ${esc(d.active_model||'')} via ${esc(d.provider||'')}</div>`
+      : `<div class="errc">${!d.token_set?'No AI provider configured — pick one above, paste a key and save.':'Cannot connect: '+esc(d.error||'unknown error')}</div>`;
   } catch(e) {
     const dot = document.getElementById('oDot');
     if(dot) dot.className = 'dot err';
@@ -1381,8 +1542,8 @@ function renderIndices(indices, targetId) {
   const el = document.getElementById(targetId);
   if(!el) return;
   el.innerHTML = Object.entries(indices).map(([name, d]) => `
-    <div class="idx-card" onclick="showStockPopup('${name==='NIFTY50'?'^NSEI':name==='SENSEX'?'^BSESN':'^NSEBANK'}')">
-      <div class="idx-name">${name}</div>
+    <div class="idx-card" onclick="showStockPopup('${d.ticker||''}', '${name}')" title="Click for full technical analysis">
+      <div class="idx-name">${name === 'INDIAVIX' ? 'INDIA VIX (fear)' : name}</div>
       <div class="idx-val">${d.price.toLocaleString('en-IN',{maximumFractionDigits:2})}</div>
       <div class="idx-chg ${pc(d.change_pct)}">${ps(d.change_pct)}${fp(d.change_pct)}</div>
     </div>`).join('');
@@ -1429,7 +1590,7 @@ function renderPortfolio(p) {
   // Stocks table
   const st = document.getElementById('sTable');
   if(st) st.innerHTML = `<table class="tbl"><thead><tr>
-    <th>Company</th><th>Qty</th><th>Avg</th><th>LTP</th><th>Today</th><th>Invested</th><th>Value</th><th>P&L</th>
+    <th>Company</th><th>Qty</th><th>Avg</th><th>LTP</th><th>Today</th><th>Invested</th><th>Value</th><th>P&L</th><th>Signal</th>
   </tr></thead><tbody>
     ${p.stocks.map(stk=>`<tr onclick="showStockPopup('${stk.symbol}')" style="cursor:pointer" title="Click for chart">
       <td><span class="sn">${esc(stk.name)}</span><span class="sb">${stk.symbol}</span><br><span class="sec">${stk.sector}</span></td>
@@ -1439,6 +1600,7 @@ function renderPortfolio(p) {
       <td class="${pc(stk.day_change_pct)}">${fp(stk.day_change_pct)}</td>
       <td>${fi(stk.invested)}</td><td>${fi(stk.current_value)}</td>
       ${pnlCell(stk)}
+      <td data-holdsig="${stk.symbol}">${holdSigCell(stk.symbol)}</td>
     </tr>`).join('')}
   </tbody></table>`;
   const su = document.getElementById('sUpd');
@@ -1463,12 +1625,13 @@ function renderPortfolio(p) {
 
   // Dashboard mini tables
   const dS = document.getElementById('dS');
-  if(dS) dS.innerHTML = `<table class="tbl"><thead><tr><th>Stock</th><th>LTP</th><th>Today</th><th>P&L</th></tr></thead><tbody>
+  if(dS) dS.innerHTML = `<table class="tbl"><thead><tr><th>Stock</th><th>LTP</th><th>Today</th><th>P&L</th><th>Signal</th></tr></thead><tbody>
     ${p.stocks.map(stk=>`<tr onclick="showStockPopup('${stk.symbol}')" style="cursor:pointer">
       <td><span class="sn">${stk.symbol}</span><br><span style="font-size:10px;color:var(--muted)">${esc(stk.name)}</span></td>
       <td>₹${stk.current_price.toLocaleString('en-IN')}</td>
       <td class="${pc(stk.day_change_pct)}">${fp(stk.day_change_pct)}</td>
       <td class="${pc(stk.pnl)}">${fp(stk.pnl_pct)}</td>
+      <td data-holdsig="${stk.symbol}">${holdSigCell(stk.symbol)}</td>
     </tr>`).join('')}
   </tbody></table>`;
 
@@ -1491,6 +1654,7 @@ function renderPortfolio(p) {
     `<button class="rbtn" id="stockBtn-${stk.symbol}" onclick="openStockChart('${stk.symbol}')"
       style="font-size:11px;padding:5px 12px">${stk.symbol}</button>`
   ).join('');
+  ensureHoldingSignals(p.stocks);
 }
 
 function renderSectorBars(sectors) {
@@ -1703,28 +1867,12 @@ async function loadStockChart(symbol, period) {
 async function loadTechnicals(symbol) {
   const el = document.getElementById('techDiv');
   if(!el) return;
-  el.innerHTML = `<div class="ld"><div class="sp"></div>Computing technicals for ${symbol}…</div>`;
+  el.innerHTML = `<div class="ld"><div class="sp"></div>Running Engine v4 on ${esc(symbol)}…</div>`;
   try {
-    const d = await fetch(`${API}/api/stock/${symbol}`).then(r=>r.json());
-    const t = d.technicals;
-    if(!t||t.error){ el.innerHTML=`<div class="errc">No data for ${symbol} — symbol may not be on NSE/Yahoo Finance</div>`; return; }
-    const signals=(t.signals||[]).map(s=>`<span class="sig ${s.type}">${s.type==='bullish'?'▲':s.type==='bearish'?'▼':'●'} ${s.msg}</span>`).join('');
-    el.innerHTML = `
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px">
-        ${[['Price',`₹${Number(t.price||0).toLocaleString('en-IN')}`],
-           ['SMA 20',t.sma20!=null?`₹${Number(t.sma20).toLocaleString('en-IN')}`:'—'],
-           ['SMA 50',t.sma50!=null?`₹${Number(t.sma50).toLocaleString('en-IN')}`:'—'],
-           ['SMA 200',t.sma200!=null?`₹${Number(t.sma200).toLocaleString('en-IN')}`:'—'],
-           ['RSI (14)',t.rsi!=null?`${t.rsi}${t.rsi>70?' ⚠ OB':t.rsi<30?' ✓ OS':''}`:'—'],
-           ['MACD',t.macd!=null?t.macd:'—'],
-           ['Signal',`<span class="${t.overall==='bullish'?'pos':'neg'}" style="font-weight:700">${(t.overall||'').toUpperCase()}</span>`]
-          ].map(([l,v])=>`<div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px 12px">
-            <div style="font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">${l}</div>
-            <div style="font-size:13px;color:var(--white);font-weight:600;line-height:1.4">${v}</div>
-          </div>`).join('')}
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px">${signals||'<span style="color:var(--muted);font-size:11px">Not enough data for signals</span>'}</div>`;
-  } catch(e){ el.innerHTML=`<div class="errc">Error: ${e.message}</div>`; }
+    const d = await fetch(`${API}/api/predict/${encodeURIComponent(symbol)}?capital=${capitalForSizing()}`).then(r=>r.json());
+    if(!d || d.error){ el.innerHTML=`<div class="errc">No data for ${esc(symbol)} — ${esc(d && d.error || 'symbol may not be on NSE/Yahoo Finance')}</div>`; return; }
+    renderPredictionPanel('techDiv', d);
+  } catch(e){ el.innerHTML=`<div class="errc">Error: ${esc(e.message)}</div>`; }
 }
 
 async function loadCompare(period) {
@@ -1813,7 +1961,7 @@ async function loadNiftyChart(period) {
 // ══════════════════════════════════════════════════════════════════════════
 // STOCK POPUP — click any stock row for mini chart + analysis
 // ══════════════════════════════════════════════════════════════════════════
-async function showStockPopup(symbol) {
+async function showStockPopup(symbol, displayName) {
   // Create overlay
   let overlay = document.getElementById('stockPopupOverlay');
   if(!overlay) {
@@ -1832,7 +1980,7 @@ async function showStockPopup(symbol) {
       width:min(680px,95vw);max-height:90vh;overflow-y:auto;position:relative">
       <div style="display:flex;align-items:center;padding:16px 18px;border-bottom:1px solid var(--border)">
         <div>
-          <div id="popupTitle" style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#fff">${symbol}</div>
+          <div id="popupTitle" style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#fff">${esc(displayName||symbol)}</div>
           <div id="popupPrice" style="font-size:12px;color:var(--muted);margin-top:2px">Loading…</div>
         </div>
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
@@ -1857,11 +2005,14 @@ async function showStockPopup(symbol) {
     b.classList.toggle('active', b.dataset.p === '1M'));
 
   // Fetch quote + news + prediction in parallel
-  const [quoteData, newsData, predData] = await Promise.all([
-    fetch(`${API}/api/stock/${symbol}`).then(r=>r.json()).catch(()=>({})),
-    fetch(`${API}/api/news/stock/${symbol}`).then(r=>r.json()).catch(()=>({articles:[]})),
-    fetch(`${API}/api/predict/${symbol}`).then(r=>r.json()).catch(()=>({})),
+  const enc = encodeURIComponent(symbol);
+  const [quoteData, newsData, predData, tvData_] = await Promise.all([
+    fetch(`${API}/api/stock/${enc}`).then(r=>r.json()).catch(()=>({})),
+    fetch(`${API}/api/news/stock/${enc}`).then(r=>r.json()).catch(()=>({articles:[]})),
+    fetch(`${API}/api/predict/${enc}?capital=${capitalForSizing()}`).then(r=>r.json()).catch(()=>({})),
+    (symbol.startsWith('^') || symbol.includes('=')) ? Promise.resolve({}) : fetch(`${API}/api/tv/ratings?symbols=${enc}`).then(r=>r.json()).catch(()=>({})),
   ]);
+  const tv = tvData_ && tvData_[symbol];
 
   const q = quoteData.quote;
 
@@ -1874,7 +2025,7 @@ async function showStockPopup(symbol) {
        H: ₹${q.day_high.toLocaleString('en-IN')} &nbsp; L: ₹${q.day_low.toLocaleString('en-IN')} &nbsp;
        <span style="color:${q.market_state==='REGULAR'?'var(--accent)':'var(--muted)'}">●${q.market_state}</span>`;
     const titleEl = document.getElementById('popupTitle');
-    if(titleEl && q.name) titleEl.textContent = q.name + ' (' + symbol + ')';
+    if(titleEl && (displayName || q.name)) titleEl.textContent = (displayName || q.name) + ' (' + symbol + ')';
   }
 
   // Metrics grid — from prediction data (already fetched 1Y internally)
@@ -1882,6 +2033,7 @@ async function showStockPopup(symbol) {
   if(metrics && predData && !predData.error) {
     const p = predData;
     const rows = [
+      ['TV Rating', tv ? `${tvBadge(tv)}` : '—'],
       ['52W High',  p.high_52w ? `₹${Number(p.high_52w).toLocaleString('en-IN')}` : '—'],
       ['52W Low',   p.low_52w  ? `₹${Number(p.low_52w).toLocaleString('en-IN')}`  : '—'],
       ['52W Pos',   p.position_52w != null ? `${p.position_52w}%` : '—'],
@@ -1933,7 +2085,7 @@ async function loadPopupChart(symbol, period) {
 
   buildChart('popupChart', 220, async (chart) => {
     try {
-      const d = await fetch(`${API}/api/history/${symbol}?period=${period}`).then(r=>r.json());
+      const d = await fetch(`${API}/api/history/${encodeURIComponent(symbol)}?period=${period}`).then(r=>r.json());
       const candles = (d.candles||[]).filter(c=>c.c>0);
       if(!candles.length) return;
       let series;
@@ -1979,127 +2131,221 @@ function renderPredictionPanel(elId, p) {
   const el = document.getElementById(elId);
   if(!el) return;
   if(!p || p.error) {
-    el.innerHTML = `<div style="font-size:11px;color:var(--muted);padding:8px 0">${p && p.error ? 'Prediction: '+p.error : 'Loading prediction…'}</div>`;
+    el.innerHTML = `<div style="font-size:11px;color:var(--muted);padding:8px 0">${p && p.error ? 'Prediction: '+esc(p.error) : 'Loading prediction…'}</div>`;
     return;
   }
   const score = p.score || 0;
   const color = p.verdict_color || '#ffd700';
   const scoreGrad = `conic-gradient(${color} ${score*3.6}deg, var(--bg3) 0deg)`;
+  const tp = p.trade_plan, fc = p.forecast;
+  const cap = capitalForSizing();
+  const money = v => '₹' + Math.round(Math.abs(v)).toLocaleString('en-IN');
+  const kv = (l, v, col, sub) => `<div class="pred-kv"><div class="pred-kv-label">${l}</div><div class="pred-kv-val" style="color:${col||'var(--white)'}">${v}</div>${sub?`<div style="font-size:9px;color:var(--muted);margin-top:2px">${sub}</div>`:''}</div>`;
 
-  // Categorise signals
-  const bulls = (p.signals||[]).filter(s=>s.weight>0);
-  const bears = (p.signals||[]).filter(s=>s.weight<0);
-  const neuts = (p.signals||[]).filter(s=>s.weight===0);
+  // ── Trade plan ──
+  let planHtml = '';
+  if(tp) {
+    const qty = tp.risk_per_share > 0 ? Math.max(0, Math.min(Math.floor(cap*0.01/tp.risk_per_share), Math.floor(cap*0.2/(tp.entry||1)))) : 0;
+    const val = qty * (tp.entry||0);
+    const t1p = val * (tp.target1_pct||0)/100, t2p = val * (tp.target2_pct||0)/100, lossp = val * (tp.stop_pct||0)/100;
+    const biasCol = tp.bias==='Long' ? 'var(--accent)' : tp.bias==='No trade' ? 'var(--yellow)' : '#ff4d6d';
+    planHtml = `
+      <div style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span class="ct" style="margin:0">📋 Trade plan</span>
+          <span class="sig-badge" style="background:rgba(255,255,255,.05);color:${biasCol};border:1px solid ${biasCol}">${esc(tp.bias)}</span>
+          <span class="sig-badge" style="background:rgba(88,166,255,.1);color:var(--blue);border:1px solid rgba(88,166,255,.3)">${esc(p.setup||'')}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:6px">
+          ${kv('Entry', '₹'+tp.entry, 'var(--white)', esc(tp.entry_note||''))}
+          ${kv('Stop-loss', '₹'+tp.stop, '#ff4d6d', fp(tp.stop_pct))}
+          ${kv('Target 1', '₹'+tp.target1, 'var(--accent)', fp(tp.target1_pct))}
+          ${kv('Target 2', '₹'+tp.target2, 'var(--accent)', fp(tp.target2_pct))}
+          ${kv('Reward : Risk', (tp.risk_reward!=null?tp.risk_reward:'—')+' : 1', tp.risk_reward>=2?'var(--accent)':tp.risk_reward>=1.5?'var(--yellow)':'var(--text)', esc(tp.horizon||''))}
+          ${tp.first_resistance?kv('First resistance', '₹'+tp.first_resistance, 'var(--yellow)', 'level to clear on the way to T1/T2'):''}
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6">
+          ${esc(tp.trail||'')} · Size for ${money(cap)} capital at 1% risk: <b style="color:var(--white)">${qty} shares (${money(val)})</b>
+          → T1 profit ≈ <b style="color:var(--accent)">${money(t1p)}</b>, T2 ≈ <b style="color:var(--accent)">${money(t2p)}</b>, stop-out ≈ <b style="color:#ff4d6d">−${money(lossp)}</b>
+        </div>
+      </div>`;
+  }
 
-  // Fibonacci levels table
+  // ── Forecast ──
+  let fcHtml = '';
+  if(fc) {
+    const ec = v => v>0?'var(--accent)':v<0?'#ff4d6d':'var(--text)';
+    fcHtml = `
+      <div style="margin-bottom:14px">
+        <div class="ct" style="margin-bottom:8px">🔮 Model forecast — this stock's own history</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:6px">
+          ${kv(`Avg ${fc.horizon_days}-session return`, fp(fc.expected_return_pct), ec(fc.expected_return_pct), `median ${fp(fc.median_return_pct)}`)}
+          ${kv('Hit rate', fc.hit_rate_pct+'%', fc.hit_rate_pct>=60?'var(--accent)':fc.hit_rate_pct<45?'#ff4d6d':'var(--text)', `${fc.samples} ${fc.basis}`)}
+          ${kv('Best / worst', `${fp(fc.best_pct)} / ${fp(fc.worst_pct)}`, 'var(--text)')}
+          ${kv('Edge vs baseline', fp(fc.score_edge_pct), ec(fc.score_edge_pct), `baseline ${fp(fc.baseline_return_pct)}, hit ${fc.baseline_hit_rate_pct}%`)}
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:6px">How: the same engine was run at ~45 past dates in the last year; days that scored like today (±8) are averaged. A probability, not a promise.</div>
+      </div>`;
+  } else if(p.forecast === null && p.candles) {
+    fcHtml = `<div style="font-size:10px;color:var(--muted);margin-bottom:12px">Forecast skipped (fast scan) — open the stock for the full forecast.</div>`;
+  }
+
+  // ── Category bars ──
+  const CAT_LABELS = {trend:'Trend', momentum:'Momentum', flow:'Money flow', rs:'Rel. strength', setup:'Setup'};
+  const catHtml = p.categories ? Object.entries(p.categories).map(([k,c]) => {
+    const col = c.score>=62?'var(--accent)':c.score>=45?'var(--yellow)':'#ff4d6d';
+    return `<div style="margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px">
+        <span style="color:var(--muted);letter-spacing:1px;text-transform:uppercase">${CAT_LABELS[k]||k} <span style="opacity:.6">${Math.round(c.weight*100)}%</span></span>
+        <span style="color:${col};font-weight:700">${c.score}</span></div>
+      <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden"><div style="height:100%;width:${c.score}%;background:${col};border-radius:3px"></div></div>
+    </div>`;
+  }).join('') : '';
+
+  const bulls = p.bullish_count ?? (p.signals||[]).filter(s=>s.weight>0).length;
+  const bears = p.bearish_count ?? (p.signals||[]).filter(s=>s.weight<0).length;
+  const neuts = p.neutral_count ?? (p.signals||[]).filter(s=>s.weight===0).length;
+  const notesHtml = (p.notes||[]).length ? `<div style="font-size:10px;color:var(--yellow);margin-top:6px">${p.notes.map(esc).join(' · ')}</div>` : '';
+
+  // ── Signals grouped ──
+  const groups = {};
+  (p.signals||[]).forEach(s => { (groups[s.category||'other'] = groups[s.category||'other'] || []).push(s); });
+  const sigHtml = Object.entries(groups).map(([cat, list]) => `
+      <div style="font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin:8px 0 2px">${CAT_LABELS[cat]||cat}</div>
+      ${list.map(s=>`
+        <div class="pred-sig-row">
+          <span class="pred-sig-icon ${s.weight>0?'pred-sig-bull':s.weight<0?'pred-sig-bear':'pred-sig-neut'}">${s.icon}</span>
+          <span style="color:var(--muted);min-width:118px;font-size:10px;flex-shrink:0">${esc(s.name)}</span>
+          <span style="color:var(--text);font-size:11px;flex:1">${esc(s.verdict)}</span>
+          <span style="font-size:10px;font-weight:700;color:${s.weight>0?'var(--accent)':s.weight<0?'#ff4d6d':'var(--muted)'}">${s.weight>0?'+'+s.weight:s.weight}</span>
+        </div>`).join('')}`).join('');
+
+  // ── Indicator tiles ──
+  const st = p.supertrend, sq = p.squeeze, rs = p.relative_strength, risk = p.risk || {};
+  const tiles = [];
+  if(p.rsi!=null) tiles.push(kv('RSI (14)', p.rsi, p.rsi<30?'var(--accent)':p.rsi>70?'#ff4d6d':'var(--text)'));
+  if(p.macd) tiles.push(kv('MACD hist', p.macd.histogram, p.macd.above_signal?'var(--accent)':'#ff4d6d', p.macd.bullish_cross?'bull cross':p.macd.bearish_cross?'bear cross':''));
+  if(p.stochastic) tiles.push(kv('Stoch %K / %D', `${p.stochastic.k} / ${p.stochastic.d}`, p.stochastic.k<20?'var(--accent)':p.stochastic.k>80?'#ff4d6d':'var(--text)'));
+  if(p.adx) tiles.push(kv('ADX', `${p.adx.adx}`, p.adx.adx>40?'var(--accent)':p.adx.adx>25?'var(--yellow)':'var(--muted)', `+DI ${p.adx.plus_di} / −DI ${p.adx.minus_di}`));
+  if(st) tiles.push(kv('Supertrend', `₹${st.line} ${st.bullish?'▲':'▼'}`, st.bullish?'var(--accent)':'#ff4d6d', st.fresh_flip?'fresh flip':`${st.bars_since_flip} bars`));
+  if(sq) tiles.push(kv('TTM Squeeze', sq.squeezing?'ON':sq.fired_bullish?'FIRED ▲':sq.fired?'fired ▼':'off', sq.fired_bullish?'var(--accent)':sq.squeezing?'var(--yellow)':'var(--text)', `mom ${sq.momentum}`));
+  if(p.cci!=null) tiles.push(kv('CCI (20)', p.cci, p.cci<-100?'var(--accent)':p.cci>100?'#ff4d6d':'var(--text)'));
+  if(p.williams_r!=null) tiles.push(kv('Williams %R', p.williams_r, p.williams_r<=-80?'var(--accent)':p.williams_r>=-20?'#ff4d6d':'var(--text)'));
+  if(p.mfi!=null) tiles.push(kv('MFI (14)', p.mfi, p.mfi<20?'var(--accent)':p.mfi>80?'#ff4d6d':'var(--text)'));
+  if(p.cmf!=null) tiles.push(kv('Chaikin MF', p.cmf, p.cmf>0.1?'var(--accent)':p.cmf<-0.1?'#ff4d6d':'var(--text)'));
+  if(p.vwap20) tiles.push(kv('VWAP 20d', '₹'+p.vwap20, p.price>p.vwap20?'var(--accent)':'#ff4d6d'));
+  if(p.bollinger) tiles.push(kv('BB %B', p.bollinger.pct_b, p.bollinger.near_lower?'var(--accent)':p.bollinger.near_upper?'#ff4d6d':'var(--text)', `bandwidth pct ${p.bollinger.bw_percentile}`));
+  if(p.aroon) tiles.push(kv('Aroon', `${p.aroon.up} / ${p.aroon.down}`, p.aroon.bullish?'var(--accent)':p.aroon.bearish?'#ff4d6d':'var(--text)'));
+  if(p.roc20!=null) tiles.push(kv('ROC 20', fp(p.roc20), p.roc20>0?'var(--accent)':'#ff4d6d'));
+  if(p.parabolic_sar) tiles.push(kv('Par. SAR', `₹${p.parabolic_sar.sar} ${p.parabolic_sar.bullish?'▲':'▼'}`, p.parabolic_sar.bullish?'var(--accent)':'#ff4d6d'));
+  if(p.atr) tiles.push(kv('ATR (14)', '₹'+p.atr, 'var(--text)', risk.atr_pct!=null?`${risk.atr_pct}% of price`:''));
+  if(p.ema_ribbon) tiles.push(kv('EMA ribbon', p.ema_ribbon, p.ema_ribbon==='bullish'?'var(--accent)':p.ema_ribbon==='bearish'?'#ff4d6d':'var(--yellow)', p.ema?`8:${p.ema['8']} 21:${p.ema['21']} 55:${p.ema['55']}`:''));
+  if(p.volume_ratio!=null) tiles.push(kv('Volume', p.volume_ratio+'x avg', p.volume_ratio>1.5?'var(--accent)':'var(--text)', `${p.accum_days||0} acc / ${p.dist_days||0} dist days`));
+
+  // ── Relative strength & risk ──
+  let rsHtml = '';
+  if(rs) {
+    rsHtml = `<div style="margin-top:14px"><div class="ct" style="margin-bottom:8px">Relative strength vs Nifty 50 ${rs.leader?'<span class="sig-badge sig-sbuy" style="margin-left:6px">LEADER</span>':''}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px">
+        ${kv('1M excess', fp(rs.excess_1m||0), rs.excess_1m>0?'var(--accent)':'#ff4d6d', `Nifty ${fp(rs.nifty_1m||0)}`)}
+        ${kv('3M excess', fp(rs.excess_3m||0), rs.excess_3m>0?'var(--accent)':'#ff4d6d', `Nifty ${fp(rs.nifty_3m||0)}`)}
+        ${kv('6M excess', fp(rs.excess_6m||0), rs.excess_6m>0?'var(--accent)':'#ff4d6d')}
+        ${kv('RS line', rs.rs_line_rising?'Rising ▲':'Falling ▼', rs.rs_line_rising?'var(--accent)':'#ff4d6d')}
+        ${kv('Beta / corr', `${rs.beta ?? '—'} / ${rs.correlation ?? '—'}`, 'var(--text)')}
+        ${kv('Volatility', (risk.annual_volatility_pct??'—')+'% ann.', 'var(--text)', `max DD 1y ${risk.max_drawdown_1y_pct??'—'}%`)}
+      </div></div>`;
+  }
+
+  // ── Trend template / structure / patterns ──
+  const tt = p.trend_template;
+  let ttHtml = '';
+  if(tt && tt.checks && tt.checks.length) {
+    ttHtml = `<div style="margin-top:14px"><div class="ct" style="margin-bottom:8px">Minervini trend template — ${tt.passed}/${tt.total} ${tt.pass?'<span class="sig-badge sig-sbuy" style="margin-left:6px">PASS</span>':''}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px;font-size:11px">
+        ${tt.checks.map(c=>`<div style="color:${c.ok?'var(--accent)':'var(--muted)'}">${c.ok?'✔':'✖'} ${esc(c.rule)}</div>`).join('')}
+      </div></div>`;
+  }
+  const extras = [];
+  if(p.structure) extras.push(`Structure: <b style="color:${p.structure.uptrend?'var(--accent)':p.structure.downtrend?'#ff4d6d':'var(--yellow)'}">${esc(p.structure.label)}</b>`);
+  if(p.divergence && (p.divergence.bullish||p.divergence.bearish)) extras.push(`RSI divergence: <b style="color:${p.divergence.bullish?'var(--accent)':'#ff4d6d'}">${p.divergence.bullish?'bullish':'bearish'}</b>`);
+  if(p.patterns && p.patterns.length) extras.push(`Candles: ${p.patterns.map(x=>`<b style="color:${x.bias>0?'var(--accent)':x.bias<0?'#ff4d6d':'var(--yellow)'}">${esc(x.name)}</b>`).join(', ')}`);
+  if(p.donchian) extras.push(`Donchian 20d: ₹${p.donchian.low20} – ₹${p.donchian.high20}${p.donchian.breakout20?' <b style="color:var(--accent)">BREAKOUT</b>':p.donchian.breakdown20?' <b style="color:#ff4d6d">BREAKDOWN</b>':''}`);
+  if(p.blast_off && p.blast_off.coiled) extras.push(`Blast-Off: <b style="color:var(--yellow)">coiled (${p.blast_off.value}%)</b>`);
+  if(p.vcp) extras.push(`<b style="color:var(--yellow)">Volatility contraction</b>`);
+  const extrasHtml = extras.length ? `<div style="font-size:11px;color:var(--text);margin-top:12px;line-height:1.8">${extras.join(' · ')}</div>` : '';
+
+  // ── Fibonacci / momentum / Ichimoku (kept) ──
   let fibHtml = '';
   if(p.fibonacci && p.fibonacci.levels) {
-    const fib = p.fibonacci;
-    const price = p.price;
-    fibHtml = `
-      <div style="margin-top:16px">
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Fibonacci Retracement (60-day)</div>
-        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px">
-          ${Object.entries(fib.levels).map(([pct,val])=>`
-            <div class="fib-level" style="${Math.abs(val-price)<(price*0.01)?'color:var(--accent);font-weight:700':'color:var(--text)'}">
-              <span style="color:var(--muted);font-size:10px">${pct}%</span>
-              <span>₹${val.toLocaleString('en-IN')}</span>
-            </div>`).join('')}
-        </div>
-      </div>`;
+    const fib = p.fibonacci, price = p.price;
+    fibHtml = `<div style="margin-top:14px"><div class="ct" style="margin-bottom:8px">Fibonacci retracement (60-day) · swing ₹${fib.swing_low} → ₹${fib.swing_high}</div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px">
+        ${Object.entries(fib.levels).map(([pct,val])=>`<div class="fib-level" style="${Math.abs(val-price)<(price*0.01)?'color:var(--accent);font-weight:700':'color:var(--text)'}"><span style="color:var(--muted);font-size:10px">${pct}%</span><span>₹${val.toLocaleString('en-IN')}</span></div>`).join('')}
+      </div></div>`;
   }
-
-  // Momentum
   let momHtml = '';
   if(p.momentum) {
-    const m = p.momentum;
-    const mc = v => v>0?'var(--accent)':'#ff4d6d';
-    momHtml = `
-      <div style="margin-top:16px">
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Price Momentum</div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
-          ${[['1M',m.ret_1m],['3M',m.ret_3m],['6M',m.ret_6m],['1Y',m.ret_1y]].map(([l,v])=>`
-            <div class="pred-kv">
-              <div class="pred-kv-label">${l} Return</div>
-              <div class="pred-kv-val" style="color:${mc(v||0)}">${v!=null?(v>0?'+':'')+v+'%':'—'}</div>
-            </div>`).join('')}
-        </div>
-      </div>`;
+    const m = p.momentum, mc = v => v>0?'var(--accent)':'#ff4d6d';
+    momHtml = `<div style="margin-top:14px"><div class="ct" style="margin-bottom:8px">Price momentum</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+        ${[['1W',m.ret_1w],['1M',m.ret_1m],['3M',m.ret_3m],['6M',m.ret_6m],['1Y',m.ret_1y]].map(([l,v])=>`<div class="pred-kv"><div class="pred-kv-label">${l}</div><div class="pred-kv-val" style="color:${mc(v||0)}">${v!=null?(v>0?'+':'')+v+'%':'—'}</div></div>`).join('')}
+      </div></div>`;
   }
-
-  // Ichimoku summary
   let ichiHtml = '';
   if(p.ichimoku) {
     const ic = p.ichimoku;
-    ichiHtml = `
-      <div class="pred-kv-grid" style="margin-top:6px">
-        <div class="pred-kv"><div class="pred-kv-label">Tenkan</div><div class="pred-kv-val">₹${ic.tenkan}</div></div>
-        <div class="pred-kv"><div class="pred-kv-label">Kijun</div><div class="pred-kv-val">₹${ic.kijun}</div></div>
-        <div class="pred-kv"><div class="pred-kv-label">Senkou A</div><div class="pred-kv-val">₹${ic.senkou_a}</div></div>
-        <div class="pred-kv"><div class="pred-kv-label">Senkou B</div><div class="pred-kv-val">₹${ic.senkou_b}</div></div>
-        <div class="pred-kv"><div class="pred-kv-label">Cloud</div><div class="pred-kv-val" style="color:${ic.above_cloud?'var(--accent)':ic.below_cloud?'#ff4d6d':'var(--yellow)'}">
-          ${ic.above_cloud?'Above ▲':ic.below_cloud?'Below ▼':'Inside ●'}</div></div>
-      </div>`;
+    ichiHtml = `<div style="margin-top:14px"><div class="ct" style="margin-bottom:8px">Ichimoku</div><div class="pred-kv-grid" style="margin-top:0">
+        ${kv('Tenkan', '₹'+ic.tenkan)}${kv('Kijun', '₹'+ic.kijun)}${kv('Senkou A', '₹'+ic.senkou_a)}${kv('Senkou B', '₹'+ic.senkou_b)}
+        ${kv('Cloud', ic.above_cloud?'Above ▲':ic.below_cloud?'Below ▼':'Inside ●', ic.above_cloud?'var(--accent)':ic.below_cloud?'#ff4d6d':'var(--yellow)', `future ${ic.future_bullish?'bullish':'bearish'} · chikou ${ic.chikou_bullish?'✔':'✖'}`)}
+      </div></div>`;
   }
 
   el.innerHTML = `
-    <!-- Score header -->
-    <div style="display:flex;align-items:center;gap:18px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px">
-      <div style="background:${scoreGrad};border-radius:50%;width:88px;height:88px;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative">
+    <div style="display:flex;align-items:center;gap:18px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="background:${scoreGrad};border-radius:50%;width:88px;height:88px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
         <div style="background:var(--bg2);border-radius:50%;width:70px;height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center">
           <div style="font-size:22px;font-weight:800;font-family:'Syne',sans-serif;color:${color}">${score}</div>
           <div style="font-size:8px;color:var(--muted);letter-spacing:1px">/100</div>
         </div>
       </div>
-      <div style="flex:1">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-          <span class="sig-badge ${verdictBadgeClass(p.verdict)}" style="font-size:13px;padding:5px 14px">${p.verdict}</span>
-          <span style="font-size:11px;color:var(--muted)">${(p.signals||[]).length} indicators analysed</span>
+      <div style="flex:1;min-width:200px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
+          <span class="sig-badge ${verdictBadgeClass(p.verdict)}" style="font-size:13px;padding:5px 14px">${esc(p.verdict)}</span>
+          <span class="sig-badge" style="background:rgba(88,166,255,.1);color:var(--blue);border:1px solid rgba(88,166,255,.3)">${esc(p.setup||'')}</span>
+          <span style="font-size:11px;color:var(--muted)">${(p.signals||[]).length} signals · as of ${p.as_of||''}</span>
         </div>
         <div style="display:flex;gap:16px;font-size:11px;flex-wrap:wrap">
-          <span style="color:var(--accent)">▲ ${bulls.length} Bullish</span>
-          <span style="color:#ff4d6d">▼ ${bears.length} Bearish</span>
-          <span style="color:var(--muted)">● ${neuts.length} Neutral</span>
+          <span style="color:var(--accent)">▲ ${bulls} bullish</span><span style="color:#ff4d6d">▼ ${bears} bearish</span><span style="color:var(--muted)">● ${neuts} neutral</span>
         </div>
-        <div class="pred-bar-wrap" style="margin-top:10px">
-          <div class="pred-bar" style="width:${score}%;background:linear-gradient(90deg,#ff4d6d,#ffd700 50%,#00d4aa)"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted)">
-          <span>Strong Sell</span><span>Neutral</span><span>Strong Buy</span>
-        </div>
+        <div class="pred-bar-wrap" style="margin-top:10px"><div class="pred-bar" style="width:${score}%;background:linear-gradient(90deg,#ff4d6d,#ffd700 50%,#00d4aa)"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted)"><span>Strong Sell</span><span>Neutral</span><span>Strong Buy</span></div>
+        ${notesHtml}
       </div>
+      <div style="min-width:200px;flex:1">${catHtml}</div>
     </div>
-
-    <!-- Signal breakdown -->
+    ${planHtml}
+    ${fcHtml}
     <div style="margin-bottom:14px">
-      <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Signal Breakdown</div>
-      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;max-height:280px;overflow-y:auto">
-        ${(p.signals||[]).map(s=>`
-          <div class="pred-sig-row">
-            <span class="pred-sig-icon ${s.weight>0?'pred-sig-bull':s.weight<0?'pred-sig-bear':'pred-sig-neut'}">${s.icon}</span>
-            <span style="color:var(--muted);min-width:110px;font-size:10px;flex-shrink:0">${s.name}</span>
-            <span style="color:var(--text);font-size:11px;flex:1">${s.verdict}</span>
-            <span style="font-size:10px;font-weight:700;color:${s.weight>0?'var(--accent)':s.weight<0?'#ff4d6d':'var(--muted)'}">${s.weight>0?'+'+s.weight:s.weight}</span>
-          </div>`).join('')}
-      </div>
+      <div class="ct" style="margin-bottom:8px">Signal breakdown</div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 14px 10px;max-height:320px;overflow-y:auto">${sigHtml}</div>
     </div>
-
-    <!-- Oscillator + trend values grid -->
-    <div class="pred-kv-grid">
-      ${p.rsi!=null?`<div class="pred-kv"><div class="pred-kv-label">RSI (14)</div><div class="pred-kv-val" style="color:${p.rsi<30?'var(--accent)':p.rsi>70?'#ff4d6d':'var(--text)'}">${p.rsi}</div></div>`:''}
-      ${p.macd?`<div class="pred-kv"><div class="pred-kv-label">MACD</div><div class="pred-kv-val" style="color:${p.macd.above_signal?'var(--accent)':'#ff4d6d'}">${p.macd.macd}</div></div>`:''}
-      ${p.stochastic?`<div class="pred-kv"><div class="pred-kv-label">Stoch %K</div><div class="pred-kv-val" style="color:${p.stochastic.k<20?'var(--accent)':p.stochastic.k>80?'#ff4d6d':'var(--text)'}">${p.stochastic.k}</div></div>`:''}
-      ${p.cci!=null?`<div class="pred-kv"><div class="pred-kv-label">CCI (20)</div><div class="pred-kv-val" style="color:${p.cci<-100?'var(--accent)':p.cci>100?'#ff4d6d':'var(--text)'}">${p.cci}</div></div>`:''}
-      ${p.adx?`<div class="pred-kv"><div class="pred-kv-label">ADX</div><div class="pred-kv-val" style="color:${p.adx.adx>40?'var(--accent)':p.adx.adx>25?'var(--yellow)':'var(--muted)'}">${p.adx.adx} ${p.adx.trending?'(trending)':'(choppy)'}</div></div>`:''}
-      ${p.bollinger?`<div class="pred-kv"><div class="pred-kv-label">BB %B</div><div class="pred-kv-val" style="color:${p.bollinger.near_lower?'var(--accent)':p.bollinger.near_upper?'#ff4d6d':'var(--text)'}">${p.bollinger.pct_b}</div></div>`:''}
-      ${p.parabolic_sar?`<div class="pred-kv"><div class="pred-kv-label">Par. SAR</div><div class="pred-kv-val" style="color:${p.parabolic_sar.bullish?'var(--accent)':'#ff4d6d'}">₹${p.parabolic_sar.sar} ${p.parabolic_sar.bullish?'▲':'▼'}</div></div>`:''}
-      ${p.atr?`<div class="pred-kv"><div class="pred-kv-label">ATR (14)</div><div class="pred-kv-val">₹${p.atr}</div></div>`:''}
-    </div>
-
+    <div class="pred-kv-grid" style="margin-top:0">${tiles.join('')}</div>
+    ${extrasHtml}
+    ${rsHtml}
+    ${ttHtml}
     ${ichiHtml}
     ${momHtml}
     ${fibHtml}
   `;
+}
+
+function capitalForSizing() {
+  try {
+    const c = parseFloat(localStorage.getItem('mm_capital') || '');
+    if(c > 0) return c;
+  } catch(_) {}
+  if(pCache && pCache.summary && pCache.summary.total_current > 0) return pCache.summary.total_current;
+  return 100000;
 }
 
 // ── News ───────────────────────────────────────────────────────────────────
@@ -2196,7 +2442,7 @@ function appendMsg(role, text, toolsUsed=[]) {
   const toolBadges = toolsUsed.length
     ? '<div style="margin-bottom:6px">' + toolsUsed.map(t=>`<span class="tool-badge">🔧 ${t}</span>`).join('') + '</div>'
     : '';
-  el.innerHTML = `<div class="av">${role==='user'?'S':'AI'}</div><div class="bub">${toolBadges}${fmtMsg(text)}</div>`;
+  el.innerHTML = `<div class="av">${role==='user'?'U':'AI'}</div><div class="bub">${toolBadges}${fmtMsg(text)}</div>`;
   div.appendChild(el);
   div.scrollTop = div.scrollHeight;
 }
@@ -2222,7 +2468,7 @@ async function sendChat() {
   if(btn) btn.disabled = true;
   const tid = showTyping();
   try {
-    const model = document.getElementById('modelSel')?.value || 'gpt-4o';
+    const model = document.getElementById('modelSel')?.value || 'auto';
     const d = await fetch(API+'/api/chat',{
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({message:msg, history:chatHistory.slice(-8), include_portfolio:true, model})
@@ -2307,7 +2553,11 @@ function renderScrTable() {
   const tbody = document.getElementById('scrBody');
   if(!tbody) return;
   if(!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">No stocks match your filter</td></tr>`;
+    const sym = query.toUpperCase().replace(/[^A-Z0-9&\-]/g, '');
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">
+      No stock in the loaded list matches “${esc(query)}”. The screener lists only index / sector members —
+      ${sym ? `<button class="scan-btn" style="margin-left:8px" onclick="showStockPopup('${esc(sym)}')">Analyse ${esc(sym)} anyway →</button>` : 'type a symbol to analyse any NSE stock.'}
+    </td></tr>`;
     return;
   }
 
@@ -2490,6 +2740,7 @@ function refreshAll() {
   loadNews(true);
   loadMarket();
   loadBriefing();
+  loadDashIdeas();
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -2519,7 +2770,7 @@ function initScreener() {
 // ── Sub-tab navigation ──────────────────────────────────────────────────────
 function scrGo(name) {
   // Abort any in-flight load for the section we're leaving
-  const tabs = ['stocks','etfs','mf','fno','fiidii','indices','signals','metals'];
+  const tabs = ['stocks','etfs','mf','fno','fiidii','indices','signals','metals','tv'];
   const prev = tabs.find(t => document.getElementById('ssec-'+t)?.classList.contains('active'));
   if(prev && prev !== name && _scrAC[prev]) {
     try { _scrAC[prev].abort(); } catch(_){}
@@ -2539,7 +2790,8 @@ function scrGo(name) {
   if(name === 'fiidii'  && !document.querySelector('#fiiDiiContent .flow-card')) loadFiiDii();
   if(name === 'indices' && !document.querySelector('#idxBody tr.idx-row')) loadAllIndices();
   if(name === 'metals'  && !document.querySelector('#metalGrid .metal-card')) loadMetals();
-  // signals tab: no auto-load — user clicks Run Scan
+  if(name === 'signals') loadUniverses();
+  if(name === 'tv'      && !tvData.length) loadTvScreen('strong_buy');
 }
 
 // ── Sector pills ────────────────────────────────────────────────────────────
@@ -2946,118 +3198,464 @@ function renderIndicesTable() {
 function filterIndicesTable() { renderIndicesTable(); }
 
 // ── Signal Scanner ────────────────────────────────────────────────────────
-
-const SCAN_LISTS = {
-  nifty50:  ['RELIANCE','TCS','HDFCBANK','INFY','BHARTIARTL','ICICIBANK','SBIN','LT','HINDUNILVR','ITC',
-              'KOTAKBANK','BAJFINANCE','AXISBANK','ASIANPAINT','MARUTI','NTPC','WIPRO','HCLTECH','TITAN','SUNPHARMA',
-              'ONGC','TATASTEEL','JSWSTEEL','COALINDIA','POWERGRID','BAJAJFINSV','ULTRACEMCO','NESTLEIND','TECHM','ADANIENT',
-              'TATAMOTORS','M&M','HINDALCO','DIVISLAB','CIPLA','DRREDDY','GRASIM','APOLLOHOSP','EICHERMOT','HEROMOTOCO',
-              'BAJAJ-AUTO','BRITANNIA','LTIM','TATACONSUM','INDUSINDBK','ADANIPORTS','SBILIFE','HDFCLIFE','UPL','BPCL'],
-  nifty100: ['RELIANCE','TCS','HDFCBANK','INFY','BHARTIARTL','ICICIBANK','SBIN','LT','HINDUNILVR','ITC',
-              'KOTAKBANK','BAJFINANCE','AXISBANK','ASIANPAINT','MARUTI','NTPC','WIPRO','HCLTECH','TITAN','SUNPHARMA',
-              'ONGC','TATASTEEL','JSWSTEEL','COALINDIA','POWERGRID','BAJAJFINSV','ULTRACEMCO','NESTLEIND','TECHM','ADANIENT',
-              'BEL','HAL','SIEMENS','ABB','HAVELLS','PIDILITIND','DMART','ZOMATO','NYKAA','POLICYBZR'],
-  midcap:   ['IRFC','PFC','RECLTD','ABFRL','BANDHANBNK','MUTHOOTFIN','LICHSGFIN','PERSISTENT','COFORGE','OFSS',
-              'VOLTAS','WHIRLPOOL','GODREJCP','MARICO','DABUR','EMAMILTD','COLPAL','BERGEPAINT','KANSAINER','INDIGO'],
-  banking:  ['HDFCBANK','ICICIBANK','SBIN','AXISBANK','KOTAKBANK','INDUSINDBK','BANDHANBNK','FEDERALBNK','IDFCFIRSTB','AUBANK'],
-  it:       ['TCS','INFY','WIPRO','HCLTECH','TECHM','LTIM','MPHASIS','COFORGE','PERSISTENT','OFSS'],
-  pharma:   ['SUNPHARMA','DRREDDY','CIPLA','DIVISLAB','APOLLOHOSP','AUROPHARMA','TORNTPHARM','ALKEM','IPCA','BIOCON'],
-};
-
-let scanResults    = [];
-let scanListKey    = 'nifty50';
+let UNIVERSES = [];
+let scanResults = [];
 let scanFilterVerdict = 'all';
+let scanSortCol = 'score';
+let scanSortAsc = false;
+let scanAbort = null;
 
-function setScanList(key) {
-  scanListKey = key;
-  document.querySelectorAll('#scanListPills .fpill').forEach((b,i)=> {
-    const keys = ['nifty50','nifty100','midcap','banking','it','pharma','custom'];
-    b.classList.toggle('active', keys[i] === key);
-  });
-  const customRow = document.getElementById('scanCustomRow');
-  if(customRow) customRow.style.display = key === 'custom' ? 'block' : 'none';
+async function loadUniverses(force = false) {
+  if(UNIVERSES.length && !force) { fillUniverseSelects(); return UNIVERSES; }
+  try { UNIVERSES = await fetch(`${API}/api/scan/universes?symbols=1`).then(r => r.json()); }
+  catch(_) { UNIVERSES = []; }
+  fillUniverseSelects();
+  return UNIVERSES;
 }
 
-function setScanFilter(verdict) {
-  scanFilterVerdict = verdict;
-  document.querySelectorAll('#ssec-signals .fpills:nth-of-type(2) .fpill').forEach(b =>
-    b.classList.toggle('active', b.textContent.trim() === verdict || (verdict==='all' && b.textContent.trim()==='All'))
-  );
+function fillUniverseSelects() {
+  const opts = UNIVERSES.map(u => `<option value="${esc(u.key)}">${esc(u.label)} (${u.count})</option>`).join('');
+  ['scanUniverse', 'ideasUniverse', 'alUniverse'].forEach(id => {
+    const s = document.getElementById(id);
+    if(!s) return;
+    const cur = s.value;
+    s.innerHTML = opts + (id === 'scanUniverse' ? '<option value="custom">Custom symbols…</option>' : '');
+    const has = v => [...s.options].some(o => o.value === v);
+    if(cur && has(cur)) s.value = cur;
+    else if(id === 'scanUniverse' && has('nifty50')) s.value = 'nifty50';
+    else if(has('nifty100')) s.value = 'nifty100';
+  });
+}
+
+function onScanUniverseChange() {
+  const v = document.getElementById('scanUniverse')?.value;
+  const row = document.getElementById('scanCustomRow');
+  if(row) row.style.display = v === 'custom' ? 'block' : 'none';
+}
+
+function setScanFilter(v) {
+  scanFilterVerdict = v;
+  document.querySelectorAll('#scanVerdictPills .fpill').forEach(b => b.classList.toggle('active', b.dataset.v === v));
   renderScanTable();
+}
+
+function sortScan(col) {
+  if(scanSortCol === col) scanSortAsc = !scanSortAsc;
+  else { scanSortCol = col; scanSortAsc = (col === 'symbol' || col === 'setup'); }
+  renderScanTable();
+}
+
+function scanSymbolsForUniverse() {
+  const key = document.getElementById('scanUniverse')?.value || 'nifty50';
+  if(key === 'custom') {
+    const raw = document.getElementById('scanCustomInput')?.value || '';
+    return raw.split(/[,\s]+/).map(s => s.trim().toUpperCase()).filter(Boolean).slice(0, 200);
+  }
+  const u = UNIVERSES.find(x => x.key === key);
+  return u ? (u.symbols || []) : [];
 }
 
 async function runSignalScan() {
   const btn = document.getElementById('scanRunBtn');
   const status = document.getElementById('scanStatus');
-  btn.disabled = true;
-  btn.textContent = 'Scanning…';
-
-  let symbols;
-  if(scanListKey === 'custom') {
-    const raw = (document.getElementById('scanCustomInput')||{}).value || '';
-    symbols = raw.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean).slice(0,30);
-    if(!symbols.length) {
-      status.textContent = 'Enter at least one symbol.';
-      btn.disabled = false; btn.textContent = 'Run Scan';
-      return;
-    }
-  } else {
-    symbols = SCAN_LISTS[scanListKey] || [];
-  }
-
-  status.textContent = `Scanning ${symbols.length} stocks…`;
+  const prog = document.getElementById('scanProgress'), bar = document.getElementById('scanProgressBar');
+  await loadUniverses();
+  const symbols = scanSymbolsForUniverse();
+  if(!symbols.length) { status.textContent = 'Enter at least one symbol.'; return; }
+  const forecast = !!document.getElementById('scanForecast')?.checked;
+  if(scanAbort) { try { scanAbort.abort(); } catch(_) {} }
+  scanAbort = new AbortController();
+  const signal = scanAbort.signal;
+  btn.disabled = true; btn.textContent = 'Scanning…';
+  scanResults = [];
+  if(prog) { prog.style.display = 'block'; bar.style.width = '0%'; }
   const body = document.getElementById('scanBody');
-  body.innerHTML = `<tr><td colspan="11" class="ld"><div class="sp"></div>Fetching 1Y history + running 15 indicators per stock…</td></tr>`;
-
+  body.innerHTML = `<tr><td colspan="14" class="ld"><div class="sp"></div>Fetching 2Y history + running Engine v4 on ${symbols.length} stocks…</td></tr>`;
+  const t0 = Date.now();
   try {
-    // Batch endpoint — server runs predictions in parallel with concurrency cap
-    const res = await fetch(`${API}/api/predict/batch`, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({symbols})
-    }).then(r=>r.json());
-    scanResults = Array.isArray(res) ? res : [];
-    const ok = scanResults.filter(r=>!r.error).length;
-    status.textContent = `${ok} / ${scanResults.length} stocks scanned`;
+    const CH = 20;
+    for(let i = 0; i < symbols.length; i += CH) {
+      const chunk = symbols.slice(i, i + CH);
+      status.textContent = `Scanning ${Math.min(i + CH, symbols.length)} / ${symbols.length}…`;
+      const res = await fetch(`${API}/api/predict/batch`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, signal,
+        body: JSON.stringify({symbols: chunk, forecast, capital: capitalForSizing()})
+      }).then(r => r.json());
+      scanResults = scanResults.concat(Array.isArray(res) ? res : []);
+      if(bar) bar.style.width = Math.round(Math.min(i + CH, symbols.length) / symbols.length * 100) + '%';
+      renderScanTable();
+    }
+    await loadScanTv(symbols);
+    const ok = scanResults.filter(r => !r.error).length;
+    const failed = scanResults.filter(r => r.error).map(r => r.symbol);
+    status.textContent = `${ok} / ${scanResults.length} analysed in ${((Date.now() - t0) / 1000).toFixed(0)}s` + (failed.length ? ` · failed: ${failed.slice(0, 6).join(', ')}${failed.length > 6 ? '…' : ''}` : '');
   } catch(e) {
-    status.textContent = 'Error: ' + e.message;
+    if(!_isAbortErr(e)) status.textContent = 'Error: ' + e.message;
   }
-
-  btn.disabled = false; btn.textContent = 'Run Scan';
+  btn.disabled = false; btn.textContent = '▶ Run Scan';
+  if(prog) setTimeout(() => { prog.style.display = 'none'; }, 800);
   renderScanTable();
+}
+
+function scanVal(r, col) {
+  const tp = r.trade_plan || {}, fc = r.forecast || {}, rs = r.relative_strength || {};
+  switch(col) {
+    case 'symbol': return r.symbol || '';
+    case 'setup': return r.setup || '';
+    case 'tv': return (scanTv[r.symbol] || {}).rating ?? -9;
+    case 'score': return r.score ?? -1;
+    case 'price': return r.price ?? 0;
+    case 'rsi': return r.rsi ?? -1;
+    case 'adx': return r.adx ? r.adx.adx : -1;
+    case 'rs': return rs.excess_3m ?? -999;
+    case 'stop': return tp.stop_pct ?? -999;
+    case 't1': return tp.target1_pct ?? -999;
+    case 'rr': return tp.risk_reward ?? -1;
+    case 'exp': return fc.expected_return_pct ?? -999;
+    case 'hit': return fc.hit_rate_pct ?? -1;
+    case 'pos52': return r.position_52w ?? -1;
+  }
+  return 0;
+}
+
+function scanFiltered() {
+  let data = scanResults.filter(r => !r.error);
+  if(scanFilterVerdict.startsWith('setup:')) data = data.filter(r => r.setup === scanFilterVerdict.slice(6));
+  else if(scanFilterVerdict !== 'all') data = data.filter(r => r.verdict === scanFilterVerdict);
+  data.sort((a, b) => {
+    const va = scanVal(a, scanSortCol), vb = scanVal(b, scanSortCol);
+    const c = typeof va === 'string' ? va.localeCompare(vb) : va - vb;
+    return scanSortAsc ? c : -c;
+  });
+  return data;
+}
+
+function setupPill(setup) {
+  const s = setup || '';
+  const col = /Breakout|Leader|Pullback|Continuation/.test(s) ? 'var(--accent)' : /Reversal/.test(s) ? 'var(--yellow)' : /Avoid/.test(s) ? '#ff4d6d' : 'var(--muted)';
+  return `<span style="font-size:10px;padding:2px 7px;border-radius:3px;border:1px solid ${col};color:${col};white-space:nowrap">${esc(s)}</span>`;
 }
 
 function renderScanTable() {
   const body = document.getElementById('scanBody');
   if(!body) return;
-  let data = [...scanResults].filter(r=>!r.error);
-  if(scanFilterVerdict !== 'all') data = data.filter(r=>r.verdict===scanFilterVerdict);
-  data.sort((a,b)=>(b.score||0)-(a.score||0));
-
+  document.querySelectorAll('#scanTable th[data-col]').forEach(th => {
+    th.classList.toggle('sorted', th.dataset.col === scanSortCol);
+    const icon = th.querySelector('.sort-icon');
+    if(icon) icon.textContent = th.dataset.col === scanSortCol ? (scanSortAsc ? '↑' : '↓') : '↕';
+  });
+  const data = scanFiltered();
   if(!data.length) {
-    body.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--muted);font-size:12px">${scanResults.length?'No stocks match the filter.':'Run a scan to see results.'}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="14" style="text-align:center;padding:24px;color:var(--muted);font-size:12px">${scanResults.length ? 'No stocks match the filter.' : 'Run a scan to see results.'}</td></tr>`;
     return;
   }
-
+  const pcol = v => v > 0 ? 'var(--accent)' : v < 0 ? '#ff4d6d' : 'var(--text)';
   body.innerHTML = data.map(r => {
-    const badgeClass = verdictBadgeClass(r.verdict);
-    const scoreColor = r.score>=62?'var(--accent)':r.score>=45?'var(--yellow)':'#ff4d6d';
-    const macdDir = r.macd ? (r.macd.above_signal?'▲':'▼') : '—';
-    const adxVal  = r.adx  ? r.adx.adx : '—';
-    return `<tr onclick="showStockPopup('${r.symbol}')" style="cursor:pointer">
+    const tp = r.trade_plan || {}, fc = r.forecast, rs = r.relative_strength || {};
+    const scoreColor = r.score >= 62 ? 'var(--accent)' : r.score >= 45 ? 'var(--yellow)' : '#ff4d6d';
+    return `<tr onclick="showStockPopup('${esc(r.symbol)}')" style="cursor:pointer">
       <td><span class="stock-sym">${esc(r.symbol)}</span></td>
-      <td style="text-align:center"><span class="sig-badge ${badgeClass}">${esc(r.verdict)}</span></td>
-      <td style="text-align:right;font-weight:700;color:${scoreColor}">${r.score}</td>
-      <td style="text-align:right">₹${r.price?r.price.toLocaleString('en-IN'):'—'}</td>
-      <td style="text-align:right;color:${r.rsi<30?'var(--accent)':r.rsi>70?'#ff4d6d':'var(--text)'}">${r.rsi!=null?r.rsi:'—'}</td>
-      <td style="text-align:right;color:${r.macd&&r.macd.above_signal?'var(--accent)':'#ff4d6d'}">${r.macd?r.macd.macd+' '+macdDir:'—'}</td>
-      <td style="text-align:right;color:${r.adx&&r.adx.trending?'var(--accent)':'var(--muted)'}">${adxVal}</td>
-      <td style="text-align:right;color:var(--muted)">₹${r.support||'—'}</td>
-      <td style="text-align:right;color:var(--muted)">₹${r.resistance||'—'}</td>
-      <td style="text-align:right;color:var(--accent)">₹${r.bull_target||'—'}</td>
-      <td style="text-align:right;color:var(--muted)">${r.position_52w!=null?r.position_52w+'%':'—'}</td>
+      <td style="text-align:center;white-space:nowrap"><span class="sig-badge ${verdictBadgeClass(r.verdict)}">${esc(r.verdict)}</span> <b style="color:${scoreColor};margin-left:4px">${r.score}</b></td>
+      <td style="text-align:center">${tvBadge(scanTv[r.symbol])}</td>
+      <td>${setupPill(r.setup)}</td>
+      <td style="text-align:right">₹${r.price ? r.price.toLocaleString('en-IN') : '—'}</td>
+      <td style="text-align:right;color:${r.rsi < 30 ? 'var(--accent)' : r.rsi > 70 ? '#ff4d6d' : 'var(--text)'}">${r.rsi != null ? r.rsi : '—'}</td>
+      <td style="text-align:right;color:${r.adx && r.adx.trending ? (r.adx.bullish_di ? 'var(--accent)' : '#ff4d6d') : 'var(--muted)'}">${r.adx ? r.adx.adx : '—'}</td>
+      <td style="text-align:right;color:${pcol(rs.excess_3m || 0)}">${rs.excess_3m != null ? fp(rs.excess_3m) : '—'}</td>
+      <td style="text-align:right;color:#ff4d6d">${tp.stop != null ? '₹' + tp.stop + ' <span style="font-size:9px;opacity:.8">' + fp(tp.stop_pct) + '</span>' : '—'}</td>
+      <td style="text-align:right;color:var(--accent)">${tp.target1 != null ? '₹' + tp.target1 + ' <span style="font-size:9px;opacity:.8">' + fp(tp.target1_pct) + '</span>' : '—'}</td>
+      <td style="text-align:right;color:${tp.risk_reward >= 2 ? 'var(--accent)' : 'var(--text)'}">${tp.risk_reward != null ? tp.risk_reward : '—'}</td>
+      <td style="text-align:right;color:${fc ? pcol(fc.expected_return_pct) : 'var(--muted)'}">${fc ? fp(fc.expected_return_pct) : '—'}</td>
+      <td style="text-align:right;color:${fc ? (fc.hit_rate_pct >= 60 ? 'var(--accent)' : fc.hit_rate_pct < 45 ? '#ff4d6d' : 'var(--text)') : 'var(--muted)'}">${fc ? fc.hit_rate_pct + '%' : '—'}</td>
+      <td style="text-align:right;color:var(--muted)">${r.position_52w != null ? r.position_52w + '%' : '—'}</td>
     </tr>`;
   }).join('');
+}
+
+function exportScanCSV() {
+  const data = scanFiltered();
+  if(!data.length) return;
+  const cols = ['symbol', 'score', 'verdict', 'setup', 'price', 'rsi', 'adx', 'rs_3m', 'entry', 'stop', 'stop_pct', 'target1', 'target1_pct', 'target2', 'risk_reward', 'model_1m_pct', 'hit_rate_pct', 'position_52w'];
+  const rows = data.map(r => {
+    const tp = r.trade_plan || {}, fc = r.forecast || {}, rs = r.relative_strength || {};
+    return [r.symbol, r.score, r.verdict, r.setup, r.price, r.rsi, r.adx ? r.adx.adx : '', rs.excess_3m ?? '', tp.entry ?? '', tp.stop ?? '', tp.stop_pct ?? '', tp.target1 ?? '', tp.target1_pct ?? '', tp.target2 ?? '', tp.risk_reward ?? '', fc.expected_return_pct ?? '', fc.hit_rate_pct ?? '', r.position_52w ?? ''];
+  });
+  const csv = [cols.join(',')].concat(rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv'}));
+  a.download = `scan_${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// BUY IDEAS — latest scheduled scan, run-now, e-mail
+// ══════════════════════════════════════════════════════════════════════════
+let ideasReport = null;
+let ideasPolling = false;
+
+async function loadIdeas(force = false) {
+  await loadUniverses();
+  refreshIdeasSched();
+  if(ideasReport && !force) { renderIdeas(ideasReport); return; }
+  const picks = document.getElementById('ideasPicks');
+  try {
+    const rep = await fetch(`${API}/api/scan/latest`).then(r => r.json());
+    if(rep.empty) {
+      ideasReport = null;
+      if(picks) picks.innerHTML = `<div class="card" style="text-align:center;padding:28px">
+        <div style="font-family:'Syne',sans-serif;font-size:15px;color:#fff;margin-bottom:6px">No scan yet</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Pick a universe above and run your first scan — the engine ranks every stock, builds a trade plan and forecasts the next month. Scheduled scans then keep this page fresh twice a day.</div>
+        <button class="scan-btn" onclick="runIdeasScan()">▶ Run first scan</button></div>`;
+      ['ideasRegime', 'ideasWatch', 'ideasPortfolio'].forEach(id => { const e = document.getElementById(id); if(e) e.innerHTML = ''; });
+      renderDashIdeas(null);
+    } else {
+      ideasReport = rep;
+      renderIdeas(rep);
+      renderDashIdeas(rep);
+    }
+  } catch(e) {
+    if(picks) picks.innerHTML = `<div class="errc">Could not load scan: ${esc(e.message)}</div>`;
+  }
+  loadIdeasHistory();
+}
+
+async function refreshIdeasSched() {
+  try {
+    const st = await fetch(`${API}/api/scan/status`).then(r => r.json());
+    const txt = `Scheduled: ${st.enabled ? (st.times || []).join(' & ') + ' IST' : 'off'} · next ${st.next_run || '—'} · e-mail ${st.email_configured ? (st.email_enabled ? 'on' : 'configured, off') : 'not configured (Settings)'}`;
+    const a = document.getElementById('ideasSched'); if(a) a.textContent = txt;
+    const b = document.getElementById('alertSched'); if(b) b.textContent = txt;
+    if(st.running && !ideasPolling) pollScan();
+  } catch(_) {}
+}
+
+async function runIdeasScan() {
+  const uni = document.getElementById('ideasUniverse')?.value || null;
+  const status = document.getElementById('ideasStatus');
+  const btn = document.getElementById('ideasRunBtn');
+  try {
+    const r = await fetch(`${API}/api/scan/run`, {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({universe: uni, email: null, capital: capitalForSizing()})}).then(r => r.json());
+    if(!r.started) { if(status) status.textContent = r.reason || 'Could not start'; return; }
+    if(btn) { btn.disabled = true; btn.textContent = 'Scanning…'; }
+    pollScan();
+  } catch(e) { if(status) status.textContent = 'Error: ' + e.message; }
+}
+
+async function pollScan() {
+  ideasPolling = true;
+  const status = document.getElementById('ideasStatus');
+  const btn = document.getElementById('ideasRunBtn');
+  try {
+    const st = await fetch(`${API}/api/scan/status`).then(r => r.json());
+    if(st.running) {
+      if(btn) { btn.disabled = true; btn.textContent = 'Scanning…'; }
+      if(status) status.innerHTML = `<span class="sp" style="display:inline-block;vertical-align:middle;margin-right:6px"></span>${esc(st.stage || 'running')} ${st.total ? `· ${st.progress}/${st.total}` : ''}`;
+      setTimeout(pollScan, 2000);
+      return;
+    }
+    if(status) status.textContent = st.last_error ? 'Last error: ' + st.last_error : (st.finished_at ? 'Scan finished ' + new Date(st.finished_at).toLocaleTimeString('en-IN', {hour12: false}) : '');
+  } catch(_) {}
+  ideasPolling = false;
+  if(btn) { btn.disabled = false; btn.textContent = '▶ Run scan now'; }
+  loadIdeas(true);
+}
+
+async function emailLatestScan() {
+  const status = document.getElementById('ideasStatus');
+  if(status) status.textContent = 'Sending e-mail…';
+  try {
+    const r = await fetch(`${API}/api/alerts/email-latest`, {method: 'POST'}).then(r => r.json());
+    if(status) status.textContent = r.sent ? `✓ Sent to ${r.to}` : `✗ ${r.error || 'not sent'}`;
+  } catch(e) { if(status) status.textContent = 'Error: ' + e.message; }
+}
+
+function regimeBanner(reg, rep) {
+  const col = {'BULL': 'var(--accent)', 'CAUTIOUS BULL': '#55efc4', 'NEUTRAL / CHOPPY': 'var(--yellow)', 'BEAR / CORRECTION': '#ff4d6d'}[reg.label] || 'var(--muted)';
+  const idx = rep.market.indices || {};
+  const cells = Object.entries(idx).map(([n, d]) => `<span style="margin-right:14px;white-space:nowrap">${n === 'INDIAVIX' ? 'VIX' : n} <b style="color:#fff">${d.price.toLocaleString('en-IN', {maximumFractionDigits: 1})}</b> <span class="${pc(d.change_pct)}">${fp(d.change_pct)}</span></span>`).join('');
+  const dist = rep.distribution || {};
+  return `<div class="card" style="border-left:4px solid ${col};margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div><div class="pulse-score" style="color:${col};font-size:34px">${reg.score}</div><div style="font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">regime</div></div>
+      <div style="flex:1;min-width:240px">
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:${col}">${esc(reg.label)}</div>
+        <div style="font-size:11px;color:var(--text);margin:3px 0 6px">${esc(reg.desc)}</div>
+        <div style="font-size:10px;color:var(--muted)">${(reg.points || []).map(esc).join(' · ')}</div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);line-height:2">${cells}<br>
+        <span style="color:var(--accent)">Strong Buy ${dist['Strong Buy'] || 0}</span> · <span style="color:#4caf50">Buy ${dist['Buy'] || 0}</span> · <span style="color:var(--yellow)">Neutral ${dist['Neutral'] || 0}</span> · <span style="color:#ff9800">Sell ${dist['Sell'] || 0}</span> · <span style="color:#ff4d6d">Strong Sell ${dist['Strong Sell'] || 0}</span></div>
+    </div></div>`;
+}
+
+function pickCard(p, rank, cap) {
+  const tp = p.trade_plan || {}, fc = p.forecast, col = p.verdict_color || 'var(--accent)';
+  const money = v => '₹' + Math.round(Math.abs(v)).toLocaleString('en-IN');
+  const t1p = cap * (tp.target1_pct || 0) / 100, t2p = cap * (tp.target2_pct || 0) / 100, lossp = cap * (tp.stop_pct || 0) / 100;
+  return `<div class="card pick-card" onclick="showStockPopup('${esc(p.symbol)}')">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:${col}">#${rank}</span>
+      <span style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff">${esc(p.symbol)}</span>
+      <span class="sig-badge ${verdictBadgeClass(p.verdict)}">${esc(p.verdict)} · ${p.score}</span>
+      ${setupPill(p.setup)}
+      ${p.tv ? tvBadge(p.tv) : ''}
+      <span style="margin-left:auto;font-size:15px;font-weight:700;color:#fff">₹${(p.price || 0).toLocaleString('en-IN')}</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:6px;margin:10px 0">
+      <div class="pred-kv"><div class="pred-kv-label">Entry</div><div class="pred-kv-val">₹${tp.entry ?? '—'}</div></div>
+      <div class="pred-kv"><div class="pred-kv-label">Stop</div><div class="pred-kv-val" style="color:#ff4d6d">₹${tp.stop ?? '—'} <span style="font-size:9px">${fp(tp.stop_pct || 0)}</span></div></div>
+      <div class="pred-kv"><div class="pred-kv-label">Target 1</div><div class="pred-kv-val" style="color:var(--accent)">₹${tp.target1 ?? '—'} <span style="font-size:9px">${fp(tp.target1_pct || 0)}</span></div></div>
+      <div class="pred-kv"><div class="pred-kv-label">Target 2</div><div class="pred-kv-val" style="color:var(--accent)">₹${tp.target2 ?? '—'} <span style="font-size:9px">${fp(tp.target2_pct || 0)}</span></div></div>
+      <div class="pred-kv"><div class="pred-kv-label">R : R</div><div class="pred-kv-val" style="color:${tp.risk_reward >= 2 ? 'var(--accent)' : 'var(--white)'}">${tp.risk_reward ?? '—'}</div></div>
+      <div class="pred-kv"><div class="pred-kv-label">Model 1M</div><div class="pred-kv-val" style="color:${fc ? (fc.expected_return_pct > 0 ? 'var(--accent)' : '#ff4d6d') : 'var(--muted)'}">${fc ? fp(fc.expected_return_pct) : '—'}</div><div style="font-size:9px;color:var(--muted)">${fc ? `hit ${fc.hit_rate_pct}% · n=${fc.samples}` : ''}</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Profit projection on ${money(cap)}: T1 ≈ <b style="color:var(--accent)">${money(t1p)}</b> · T2 ≈ <b style="color:var(--accent)">${money(t2p)}</b> · stop-out ≈ <b style="color:#ff4d6d">−${money(lossp)}</b> · ${esc(tp.horizon || '')} · ${esc(tp.entry_note || '')}</div>
+    <div style="font-size:11px;line-height:1.6">${(p.reasons || []).slice(0, 3).map(r => `<div style="color:var(--text)">▲ ${esc(r)}</div>`).join('')}${(p.risks || []).slice(0, 1).map(r => `<div style="color:#ff9f43">▼ ${esc(r)}</div>`).join('')}</div>
+  </div>`;
+}
+
+function renderIdeas(rep) {
+  const cap = rep.capital || capitalForSizing();
+  const meta = document.getElementById('ideasMeta');
+  if(meta) meta.textContent = `${rep.generated_label} · ${rep.universe_label} · ${rep.ok}/${rep.scanned} analysed · slot ${rep.slot}` + (rep.email && rep.email.sent ? ` · e-mailed to ${rep.email.to}` : '');
+  const reg = document.getElementById('ideasRegime');
+  if(reg) reg.innerHTML = regimeBanner(rep.market.regime, rep);
+  const picks = document.getElementById('ideasPicks');
+  if(picks) {
+    picks.innerHTML = rep.top_buys.length
+      ? `<div class="ct">🎯 High-conviction buys (${rep.top_buys.length})</div><div class="pick-grid">${rep.top_buys.map((p, i) => pickCard(p, i + 1, cap)).join('')}</div>`
+      : `<div class="card" style="border-left:4px solid var(--yellow)"><div style="font-family:'Syne',sans-serif;color:#fff;font-size:14px;margin-bottom:4px">No high-conviction buy today</div><div style="font-size:11px;color:var(--muted)">Nothing scored above the bar with a valid setup. A bull with discipline waits — the watch-list below shows what is closest to a trigger. Lower the minimum score in Settings if you want more (lower-quality) ideas.</div></div>`;
+  }
+  const watch = document.getElementById('ideasWatch');
+  if(watch) watch.innerHTML = rep.watchlist.length ? `<table class="tbl"><thead><tr><th>Symbol</th><th>Score</th><th>Setup</th><th>Price</th><th>Stop</th><th>T1</th></tr></thead><tbody>${rep.watchlist.map(p => {
+    const tp = p.trade_plan || {};
+    return `<tr onclick="showStockPopup('${esc(p.symbol)}')"><td><b style="color:#fff">${esc(p.symbol)}</b></td><td><span class="sig-badge ${verdictBadgeClass(p.verdict)}">${p.score}</span></td><td>${setupPill(p.setup)}</td><td>₹${p.price}</td><td style="color:#ff4d6d">₹${tp.stop ?? '—'}</td><td style="color:var(--accent)">₹${tp.target1 ?? '—'}</td></tr>`;
+  }).join('')}</tbody></table>` : `<div style="font-size:11px;color:var(--muted)">Nothing close to a trigger.</div>`;
+  const port = document.getElementById('ideasPortfolio');
+  if(port) port.innerHTML = rep.portfolio.length ? `<table class="tbl"><thead><tr><th>Holding</th><th>P&L</th><th>Score</th><th>Action</th><th>Stop</th></tr></thead><tbody>${rep.portfolio.map(h => {
+    if(h.error) return `<tr><td><b>${esc(h.symbol)}</b></td><td colspan="4" style="color:var(--muted)">${esc(h.error)}</td></tr>`;
+    const tp = h.trade_plan || {};
+    const acol = /Add|^Hold$/.test(h.action) ? 'var(--accent)' : /tighten/.test(h.action) ? 'var(--yellow)' : '#ff4d6d';
+    return `<tr onclick="showStockPopup('${esc(h.symbol)}')"><td><b style="color:#fff">${esc(h.symbol)}</b><br><span style="font-size:10px;color:var(--muted)">₹${h.current_price ?? h.price}</span></td><td class="${pc(h.pnl_pct || 0)}">${fp(h.pnl_pct || 0)}</td><td><span class="sig-badge ${verdictBadgeClass(h.verdict)}">${h.score}</span></td><td style="color:${acol};font-weight:700">${esc(h.action)}</td><td style="color:#ff4d6d">₹${tp.stop ?? '—'}</td></tr>`;
+  }).join('')}</tbody></table>` : `<div style="font-size:11px;color:var(--muted)">No stock holdings in the report.</div>`;
+}
+
+function renderDashIdeas(rep) {
+  const el = document.getElementById('dashIdeas');
+  if(!el) return;
+  if(!rep) { el.innerHTML = `<div class="card" style="margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="ct" style="margin:0">🎯 Buy Ideas</span><span style="font-size:11px;color:var(--muted)">No scan yet — run one to get ranked setups with trade plans.</span><button class="rbtn" onclick="go('ideas');runIdeasScan()">▶ Run scan</button></div>`; return; }
+  const reg = rep.market.regime;
+  const col = {'BULL': 'var(--accent)', 'CAUTIOUS BULL': '#55efc4', 'NEUTRAL / CHOPPY': 'var(--yellow)', 'BEAR / CORRECTION': '#ff4d6d'}[reg.label] || 'var(--muted)';
+  const chips = rep.top_buys.slice(0, 6).map(p => `<span class="sig-badge ${verdictBadgeClass(p.verdict)}" style="cursor:pointer" onclick="showStockPopup('${esc(p.symbol)}')">${esc(p.symbol)} ${p.score} · T1 ${fp((p.trade_plan || {}).target1_pct || 0)}</span>`).join(' ');
+  el.innerHTML = `<div class="card" style="margin-bottom:14px;border-left:4px solid ${col}">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span class="ct" style="margin:0">🎯 Buy Ideas</span>
+      <span style="font-family:'Syne',sans-serif;font-weight:800;color:${col}">${esc(reg.label)} ${reg.score}</span>
+      <span style="font-size:10px;color:var(--muted)">${esc(rep.generated_label)}</span>
+      <a onclick="go('ideas')" style="margin-left:auto;font-size:11px;cursor:pointer">See all →</a>
+    </div>
+    <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${chips || '<span style="font-size:11px;color:var(--muted)">No high-conviction buy in the last scan — watch-list in Buy Ideas.</span>'}</div>
+  </div>`;
+}
+
+async function loadDashIdeas() {
+  try {
+    const rep = await fetch(`${API}/api/scan/latest`).then(r => r.json());
+    if(!rep.empty) ideasReport = rep;
+    renderDashIdeas(rep.empty ? null : rep);
+  } catch(_) {}
+}
+
+async function loadIdeasHistory() {
+  const el = document.getElementById('ideasHistory');
+  if(!el) return;
+  try {
+    const h = await fetch(`${API}/api/scan/history`).then(r => r.json());
+    if(!h.length) { el.innerHTML = `<div style="font-size:11px;color:var(--muted)">No scans yet.</div>`; return; }
+    el.innerHTML = `<table class="tbl"><thead><tr><th>When</th><th>Slot</th><th>Universe</th><th>Regime</th><th>Top buys</th><th>E-mail</th></tr></thead><tbody>${h.map(r => `
+      <tr onclick="openHistoryReport('${esc(r.file)}')"><td>${esc(r.label || r.generated_at)}</td><td>${esc(r.slot || '')}</td><td>${esc(r.universe || '')} (${r.scanned})</td><td>${esc(r.regime || '')}</td><td style="font-size:11px">${(r.top_buys || []).join(', ') || '—'}</td><td>${r.email_sent ? '✓' : '—'}</td></tr>`).join('')}</tbody></table>`;
+  } catch(_) { el.innerHTML = ''; }
+}
+
+async function openHistoryReport(file) {
+  try {
+    const rep = await fetch(`${API}/api/scan/report/${encodeURIComponent(file)}`).then(r => r.json());
+    if(rep && !rep.error) { ideasReport = rep; renderIdeas(rep); window.scrollTo({top: 0, behavior: 'smooth'}); }
+  } catch(_) {}
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// E-MAIL ALERT SETTINGS
+// ══════════════════════════════════════════════════════════════════════════
+async function loadAlertConfig() {
+  await loadUniverses();
+  refreshIdeasSched();
+  try {
+    const c = await fetch(`${API}/api/alerts/config`).then(r => r.json());
+    const set = (id, v) => { const e = document.getElementById(id); if(e) e.value = v ?? ''; };
+    const chk = (id, v) => { const e = document.getElementById(id); if(e) e.checked = !!v; };
+    set('alTo', c.email_to); set('alUser', c.smtp_user); set('alPass', c.smtp_pass); set('alHost', c.smtp_host); set('alPort', c.smtp_port);
+    set('alTimes', (c.times || []).join(', ')); set('alMin', c.min_score); set('alCap', c.capital);
+    const u = document.getElementById('alUniverse'); if(u && [...u.options].some(o => o.value === c.universe)) u.value = c.universe;
+    chk('alEnabled', c.enabled); chk('alEmail', c.email_enabled); chk('alWeekdays', c.weekdays_only); chk('alPortfolio', c.include_portfolio);
+    try { if(c.capital) localStorage.setItem('mm_capital', String(c.capital)); } catch(_) {}
+  } catch(e) { const m = document.getElementById('alMsg'); if(m) m.textContent = 'Could not load config: ' + e.message; }
+}
+
+async function saveAlertConfig() {
+  const g = id => document.getElementById(id)?.value?.trim();
+  const body = {
+    email_to: g('alTo'), smtp_user: g('alUser'), smtp_pass: g('alPass'), smtp_host: g('alHost') || 'smtp.gmail.com',
+    smtp_port: parseInt(g('alPort') || '587', 10), times: (g('alTimes') || '08:45, 15:45').split(',').map(s => s.trim()).filter(Boolean),
+    universe: document.getElementById('alUniverse')?.value, min_score: parseInt(g('alMin') || '65', 10), capital: parseFloat(g('alCap') || '100000'),
+    enabled: document.getElementById('alEnabled')?.checked, email_enabled: document.getElementById('alEmail')?.checked,
+    weekdays_only: document.getElementById('alWeekdays')?.checked, include_portfolio: document.getElementById('alPortfolio')?.checked,
+  };
+  const m = document.getElementById('alMsg');
+  try {
+    const c = await fetch(`${API}/api/alerts/config`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.json());
+    if(m) m.textContent = '✓ Saved' + (c.smtp_configured ? '' : ' — e-mail not fully configured yet');
+    try { if(body.capital) localStorage.setItem('mm_capital', String(body.capital)); } catch(_) {}
+    refreshIdeasSched();
+  } catch(e) { if(m) m.textContent = 'Error: ' + e.message; }
+}
+
+async function testAlertEmail() {
+  const m = document.getElementById('alMsg');
+  if(m) m.textContent = 'Sending test e-mail…';
+  try {
+    const r = await fetch(`${API}/api/alerts/test-email`, {method: 'POST'}).then(r => r.json());
+    if(m) m.textContent = r.sent ? `✓ Test e-mail sent to ${r.to}` : `✗ ${r.error}`;
+  } catch(e) { if(m) m.textContent = 'Error: ' + e.message; }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// HOLDING SIGNALS — engine verdict for each stock you own (10-minute cache)
+// ══════════════════════════════════════════════════════════════════════════
+const holdSig = {};
+let holdSigAt = 0, holdSigBusy = false;
+
+function holdSigCell(sym) {
+  const s = holdSig[sym];
+  if(!s) return `<span style="font-size:10px;color:var(--muted)">…</span>`;
+  if(s.error) return `<span style="font-size:10px;color:var(--muted)">—</span>`;
+  const tp = s.trade_plan || {};
+  return `<span class="sig-badge ${verdictBadgeClass(s.verdict)}" title="${esc(s.setup || '')} · stop ₹${tp.stop ?? '—'} · T1 ₹${tp.target1 ?? '—'}">${s.score}</span><br><span style="font-size:9px;color:var(--muted)">${esc((s.setup || '').replace(' — ', ' '))}</span>`;
+}
+
+async function ensureHoldingSignals(stocks) {
+  const syms = (stocks || []).map(s => s.symbol);
+  const stale = Date.now() - holdSigAt > 10 * 60 * 1000 || syms.some(s => !holdSig[s]);
+  if(!syms.length || !stale || holdSigBusy) return;
+  holdSigBusy = true;
+  try {
+    const res = await fetch(`${API}/api/predict/batch`, {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({symbols: syms, forecast: false})}).then(r => r.json());
+    (Array.isArray(res) ? res : []).forEach(r => { if(r && r.symbol) holdSig[r.symbol] = r; });
+    holdSigAt = Date.now();
+    document.querySelectorAll('[data-holdsig]').forEach(td => { td.innerHTML = holdSigCell(td.dataset.holdsig); });
+  } catch(_) {}
+  holdSigBusy = false;
 }
 
 // ── Metals ────────────────────────────────────────────────────────────────
@@ -3139,128 +3737,238 @@ function renderMetalGrid(data) {
 }
 
 async function showMetalDetail(symbol, name, icon) {
-  // show mini chart in a popup — reuse stock popup structure
-  const period = document.getElementById('metalPredPeriod')?.value || '6mo';
-  try {
-    const r = await fetch(`/api/metals/history/${encodeURIComponent(symbol)}?period=${period}`);
-    const d = await r.json();
-    if(!d.candles || !d.candles.length) return;
-    // Just open a simple info – full popup would require chart integration
-    // For now show prediction popup if available
-    showMetalPopup(symbol, name, icon, d.candles);
-  } catch(e) { /* silent */ }
+  showMetalPopup(symbol, name, icon);
 }
 
-function showMetalPopup(symbol, name, icon, candles) {
-  const pop = document.getElementById('stockPopup');
-  const body = document.getElementById('popupBody');
-  if(!pop || !body) return;
-
-  const last  = candles[candles.length-1];
-  const first = candles[0];
-  const chgPct = first.price ? ((last.price - first.price)/first.price*100).toFixed(2) : 0;
-  const up = chgPct >= 0;
-
-  body.innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-      <span style="font-size:32px">${icon}</span>
-      <div>
-        <div style="font-size:18px;font-weight:700;color:#fff">${name}</div>
-        <div style="font-size:11px;color:var(--muted)">${symbol} · Spot Price · INR</div>
+async function showMetalPopup(symbol, name, icon) {
+  let overlay = document.getElementById('stockPopupOverlay');
+  if(!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'stockPopupOverlay';
+    overlay.style.cssText = `position:fixed;inset:0;background:rgba(7,9,14,.85);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);animation:fi .2s ease`;
+    overlay.onclick = e => { if(e.target === overlay) closePopup(); };
+    document.body.appendChild(overlay);
+  }
+  const period = document.getElementById('metalPredPeriod')?.value || '6mo';
+  overlay.innerHTML = `
+    <div id="stockPopup" style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;width:min(720px,95vw);max-height:90vh;overflow-y:auto;position:relative">
+      <div style="display:flex;align-items:center;padding:16px 18px;border-bottom:1px solid var(--border);gap:10px">
+        <span style="font-size:28px">${icon}</span>
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#fff">${esc(name)}</div>
+          <div id="popupPrice" style="font-size:12px;color:var(--muted);margin-top:2px">${esc(symbol)} · spot converted to INR · loading…</div>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:4px;align-items:center">
+          ${['1mo','3mo','6mo','1y','2y'].map(p=>`<button class="pbtn popup-pbtn ${p===period?'active':''}" data-p="${p}" onclick="loadMetalPopupChart('${esc(symbol)}','${p}')">${p.toUpperCase()}</button>`).join('')}
+          <button onclick="closePopup()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;margin-left:6px">✕</button>
+        </div>
       </div>
-      <div style="margin-left:auto;text-align:right">
-        <div style="font-size:22px;font-weight:700;color:#fff">${fmtMetalPrice(last.price)}</div>
-        <div style="font-size:12px;color:${up?'var(--accent)':'var(--red)'}">${up?'▲':'▼'} ${Math.abs(chgPct)}%</div>
+      <div style="padding:16px 18px">
+        <div id="popupChart" style="height:220px;width:100%;margin-bottom:14px"></div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Engine runs on the COMEX/LME USD series — indicator levels, entry/stop/targets below are in USD per troy-oz / lb; percentages apply directly to the INR price.</div>
+        <div id="popupPrediction"><div class="ld"><div class="sp"></div>Running Engine v4…</div></div>
       </div>
-    </div>
-    <div id="metalChartPop" style="height:220px;margin-bottom:16px;background:var(--bg2);border-radius:8px"></div>
-    <div id="metalPredPop"><div class="ld"><div class="sp"></div>Running prediction…</div></div>`;
+    </div>`;
+  overlay.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => loadMetalPopupChart(symbol, period), 50);
+  fetch(`${API}/api/predict/${encodeURIComponent(symbol)}`).then(r => r.json())
+    .then(pred => renderPredictionPanel('popupPrediction', pred))
+    .catch(() => { const e = document.getElementById('popupPrediction'); if(e) e.innerHTML = '<div style="color:var(--muted);font-size:11px">Prediction unavailable.</div>'; });
+}
 
-  pop.classList.add('open');
-
-  // Draw chart
-  requestAnimationFrame(() => {
-    const c = makeChart('metalChartPop');
-    if(c) {
-      const s = c.chart.addAreaSeries({lineColor:'#ffd700',topColor:'rgba(255,215,0,.18)',bottomColor:'rgba(255,215,0,0)'});
+async function loadMetalPopupChart(symbol, period) {
+  document.querySelectorAll('.popup-pbtn').forEach(b => b.classList.toggle('active', b.dataset.p === period));
+  buildChart('popupChart', 220, async (chart) => {
+    try {
+      const d = await fetch(`${API}/api/metals/history/${encodeURIComponent(symbol)}?period=${period}`).then(r => r.json());
+      const candles = (d.candles || []).filter(c => c.price > 0);
+      if(!candles.length) return;
+      const s = chart.addAreaSeries({lineColor: '#ffd700', topColor: 'rgba(255,215,0,.18)', bottomColor: 'rgba(255,215,0,0)', lineWidth: 2});
       s.setData(candles.map(x => ({time: x.time, value: x.price})));
-      c.chart.timeScale().fitContent();
-    }
+      addSeries('popupChart', s);
+      chart.timeScale().fitContent();
+      const last = candles[candles.length - 1], first = candles[0];
+      const chg = ((last.price - first.price) / first.price * 100).toFixed(2);
+      const pe = document.getElementById('popupPrice');
+      if(pe) pe.innerHTML = `${fmtMetalPrice(last.price)} <span class="${chg >= 0 ? 'pos' : 'neg'}">${chg >= 0 ? '▲' : '▼'} ${Math.abs(chg)}% (${period})</span> · INR spot equivalent`;
+    } catch(e) { console.error('metal chart', e); }
   });
-
-  // Fetch prediction
-  fetch(`/api/predict/${encodeURIComponent(symbol)}`)
-    .then(r => r.json())
-    .then(pred => {
-      document.getElementById('metalPredPop').innerHTML = renderPredictionPanel(pred);
-    })
-    .catch(() => {
-      document.getElementById('metalPredPop').innerHTML =
-        '<div style="color:var(--muted);font-size:11px">Prediction unavailable for this symbol.</div>';
-    });
 }
 
 async function loadMetalPredictions() {
   const grid = document.getElementById('metalPredGrid');
   if(!grid) return;
-  grid.innerHTML = '<div class="ld"><div class="sp"></div>Analyzing 6 metals with 15 indicators each…</div>';
-
-  const symbols = ['GC=F','SI=F','HG=F','PL=F','PA=F','ALI=F'];
-  const names   = {
-    'GC=F':'Gold','SI=F':'Silver','HG=F':'Copper',
-    'PL=F':'Platinum','PA=F':'Palladium','ALI=F':'Aluminium'
-  };
-  const icons   = {
-    'GC=F':'🥇','SI=F':'🥈','HG=F':'🟫',
-    'PL=F':'⬜','PA=F':'🔷','ALI=F':'🔩'
-  };
-
+  grid.innerHTML = '<div class="ld"><div class="sp"></div>Analyzing 6 metals with Engine v4…</div>';
+  const symbols = ['GC=F', 'SI=F', 'HG=F', 'PL=F', 'PA=F', 'ALI=F'];
+  const names = {'GC=F': 'Gold', 'SI=F': 'Silver', 'HG=F': 'Copper', 'PL=F': 'Platinum', 'PA=F': 'Palladium', 'ALI=F': 'Aluminium'};
+  const icons = {'GC=F': '🥇', 'SI=F': '🥈', 'HG=F': '🟫', 'PL=F': '⬜', 'PA=F': '🔷', 'ALI=F': '🔩'};
   try {
-    // Individual fetches (batch endpoint expects NSE symbols; commodity symbols work individually)
-    const preds = await Promise.allSettled(
-      symbols.map(s => fetch(`/api/predict/${encodeURIComponent(s)}`).then(r => r.json()))
-    );
-
+    const preds = await Promise.allSettled(symbols.map(s => fetch(`${API}/api/predict/${encodeURIComponent(s)}?forecast=0`).then(r => r.json())));
     grid.innerHTML = preds.map((p, i) => {
-      const sym  = symbols[i];
-      const name = names[sym];
-      const icon = icons[sym];
+      const sym = symbols[i], name = names[sym], icon = icons[sym];
       if(p.status === 'rejected' || p.value?.error) {
-        return `<div class="card" style="padding:12px;opacity:.6">
-          <div>${icon} <b>${name}</b></div>
-          <div style="font-size:11px;color:var(--muted)">Prediction unavailable</div>
-        </div>`;
+        return `<div class="card" style="padding:12px;opacity:.6"><div>${icon} <b>${name}</b></div><div style="font-size:11px;color:var(--muted)">Prediction unavailable</div></div>`;
       }
-      const pred = p.value;
-      const sc   = pred.score ?? 50;
-      const verd = pred.verdict ?? 'Neutral';
-      const cls  = verd.includes('Strong Buy')?'sig-sbuy':verd.includes('Buy')?'sig-buy':
-                   verd.includes('Strong Sell')?'sig-ssell':verd.includes('Sell')?'sig-sell':'sig-neut';
+      const pred = p.value, sc = pred.score ?? 50, verd = pred.verdict ?? 'Neutral', tp = pred.trade_plan || {};
+      const col = sc >= 62 ? 'var(--accent)' : sc >= 45 ? 'var(--yellow)' : '#ff4d6d';
+      const reasons = (pred.signals || []).filter(s => s.weight > 0).sort((a, b) => b.weight - a.weight).slice(0, 2).map(s => s.name + ': ' + s.verdict);
       return `
-        <div class="card" style="padding:14px;cursor:pointer" onclick="showMetalPopup('${sym}','${name}','${icon}',[])">
+        <div class="card" style="padding:14px;cursor:pointer" onclick="showMetalPopup('${sym}','${name}','${icon}')">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
             <span style="font-size:20px">${icon}</span>
             <div style="font-weight:700;color:#fff;font-size:13px">${name}</div>
-            <span class="sig-badge ${cls}" style="margin-left:auto">${verd}</span>
+            <span class="sig-badge ${verdictBadgeClass(verd)}" style="margin-left:auto">${verd} · ${sc}</span>
           </div>
-          <div style="display:flex;align-items:center;gap:10px">
-            <div class="pred-score-ring" style="--sc:${sc}%;--sc-color:${sc>=60?'var(--accent)':sc>=40?'var(--yellow)':'var(--red)'}">
-              <span>${sc}</span>
-            </div>
-            <div style="flex:1">
-              <div class="pred-bar-wrap" style="margin-bottom:4px">
-                <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
-                  <div style="height:100%;width:${sc}%;background:${sc>=60?'var(--accent)':sc>=40?'var(--yellow)':'var(--red)'};border-radius:3px"></div>
-                </div>
-              </div>
-              <div style="font-size:10px;color:var(--muted)">${pred.summary || ''}</div>
-            </div>
-          </div>
+          <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:8px"><div style="height:100%;width:${sc}%;background:${col};border-radius:3px"></div></div>
+          <div style="font-size:11px;color:var(--text);margin-bottom:4px">${setupPill(pred.setup)} &nbsp; stop ${fp(tp.stop_pct || 0)} · T1 ${fp(tp.target1_pct || 0)} · R:R ${tp.risk_reward ?? '—'}</div>
+          <div style="font-size:10px;color:var(--muted);line-height:1.5">${reasons.map(esc).join('<br>')}</div>
         </div>`;
     }).join('');
   } catch(e) {
-    grid.innerHTML = `<div style="color:var(--red);font-size:12px">Error: ${e.message}</div>`;
+    grid.innerHTML = `<div style="color:var(--red);font-size:12px">Error: ${esc(e.message)}</div>`;
   }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// TRADINGVIEW — ratings badge, scanner column, screener tab
+// ══════════════════════════════════════════════════════════════════════════
+const scanTv = {};
+let tvData = [], tvPreset = 'strong_buy', tvSortCol = 'rating', tvSortAsc = false, tvPresets = [];
+
+function tvBadge(t) {
+  if(!t || t.rating == null) return `<span style="font-size:10px;color:var(--muted)">—</span>`;
+  return `<span class="sig-badge ${verdictBadgeClass(t.rating_label)}" title="TradingView technical rating ${t.rating} · MA ${t.rating_ma ?? ''} · Osc ${t.rating_osc ?? ''}">${esc(t.rating_label)} <span style="opacity:.7;font-weight:400">${t.rating > 0 ? '+' : ''}${t.rating}</span></span>`;
+}
+
+async function loadScanTv(symbols) {
+  try {
+    const stock = symbols.filter(s => !s.startsWith('^') && !s.includes('='));
+    for(let i = 0; i < stock.length; i += 150) {
+      const m = await fetch(`${API}/api/tv/ratings?symbols=${encodeURIComponent(stock.slice(i, i + 150).join(','))}`).then(r => r.json());
+      Object.assign(scanTv, m || {});
+    }
+  } catch(_) {}
+}
+
+async function loadTvScreen(preset, force = false) {
+  if(preset) tvPreset = preset;
+  const body = document.getElementById('tvBody');
+  const mcap = document.getElementById('tvMcap')?.value || 1000;
+  if(body && !tvData.length) body.innerHTML = `<tr><td colspan="13" class="ld"><div class="sp"></div>Loading TradingView data…</td></tr>`;
+  try {
+    const d = await fetch(`${API}/api/tv/screen?preset=${encodeURIComponent(tvPreset)}&limit=150&min_mcap_cr=${mcap}${force ? '&t=' + Date.now() : ''}`).then(r => r.json());
+    tvPresets = d.presets || [];
+    tvData = d.rows || [];
+    const pills = document.getElementById('tvPresetPills');
+    if(pills) pills.innerHTML = tvPresets.map(p => `<button class="fpill ${p.key === tvPreset ? 'active' : ''}" onclick="loadTvScreen('${p.key}')" title="${esc(p.desc)}">${esc(p.label)}</button>`).join('');
+    const desc = document.getElementById('tvDesc');
+    if(desc) desc.textContent = `${d.label}: ${d.desc} — ${d.count} of ${d.universe} stocks match` + (d.available === false ? ' · tradingview-screener package not installed (pip install tradingview-screener)' : '');
+    renderTvTable();
+  } catch(e) { if(body) body.innerHTML = `<tr><td colspan="13"><div class="errc">TradingView data unavailable: ${esc(e.message)}</div></td></tr>`; }
+}
+
+function sortTv(col) {
+  if(tvSortCol === col) tvSortAsc = !tvSortAsc; else { tvSortCol = col; tvSortAsc = (col === 'symbol' || col === 'sector'); }
+  renderTvTable();
+}
+
+function renderTvTable() {
+  const body = document.getElementById('tvBody');
+  if(!body) return;
+  const q = (document.getElementById('tvSearch')?.value || '').toLowerCase();
+  const val = (r, c) => c === 'dist52' ? (r.high_52w && r.price ? (r.price / r.high_52w - 1) * 100 : -999) : (typeof r[c] === 'string' ? r[c] : (r[c] ?? -999));
+  let rows = tvData.filter(r => !q || (r.symbol || '').toLowerCase().includes(q) || (r.name || '').toLowerCase().includes(q) || (r.sector || '').toLowerCase().includes(q) || (r.industry || '').toLowerCase().includes(q));
+  rows.sort((a, b) => { const va = val(a, tvSortCol), vb = val(b, tvSortCol); const c = typeof va === 'string' ? va.localeCompare(vb) : va - vb; return tvSortAsc ? c : -c; });
+  document.querySelectorAll('#tvTable th[data-col]').forEach(th => { th.classList.toggle('sorted', th.dataset.col === tvSortCol); const i = th.querySelector('.sort-icon'); if(i) i.textContent = th.dataset.col === tvSortCol ? (tvSortAsc ? '↑' : '↓') : '↕'; });
+  if(!rows.length) {
+    const sym = q.toUpperCase().replace(/[^A-Z0-9&\-]/g, '');
+    body.innerHTML = `<tr><td colspan="13" style="text-align:center;padding:24px;color:var(--muted)">No stock in this preset matches “${esc(q)}”. ${sym ? `<button class="scan-btn" style="margin-left:8px" onclick="showStockPopup('${esc(sym)}')">Analyse ${esc(sym)} anyway →</button>` : ''}</td></tr>`;
+    return;
+  }
+  const pcol = v => v > 0 ? 'var(--accent)' : v < 0 ? '#ff4d6d' : 'var(--text)';
+  body.innerHTML = rows.map(r => {
+    const d52 = r.high_52w && r.price ? (r.price / r.high_52w - 1) * 100 : null;
+    return `<tr onclick="showStockPopup('${esc(r.symbol)}')">
+      <td><span class="stock-sym">${esc(r.symbol)}</span><br><span class="stock-name">${esc((r.name || '').substring(0, 30))}</span></td>
+      <td style="text-align:center">${tvBadge(r)}</td>
+      <td style="text-align:right;color:var(--white);font-weight:600">₹${(r.price || 0).toLocaleString('en-IN')}</td>
+      <td style="text-align:right;color:${pcol(r.change_pct || 0)}">${fp(r.change_pct || 0)}</td>
+      <td style="text-align:right;color:${r.rsi < 30 ? 'var(--accent)' : r.rsi > 70 ? '#ff4d6d' : 'var(--text)'}">${r.rsi ?? '—'}</td>
+      <td style="text-align:right;color:${r.adx > 25 ? 'var(--accent)' : 'var(--muted)'}">${r.adx ?? '—'}</td>
+      <td style="text-align:right;color:${r.rel_volume >= 2 ? 'var(--accent)' : 'var(--text)'}">${r.rel_volume != null ? r.rel_volume + 'x' : '—'}</td>
+      <td style="text-align:right;color:${pcol(r.perf_1m || 0)}">${r.perf_1m != null ? fp(r.perf_1m) : '—'}</td>
+      <td style="text-align:right;color:${pcol(r.perf_3m || 0)}">${r.perf_3m != null ? fp(r.perf_3m) : '—'}</td>
+      <td style="text-align:right;color:${pcol(r.perf_1y || 0)}">${r.perf_1y != null ? fp(r.perf_1y) : '—'}</td>
+      <td style="text-align:right;color:${d52 != null && d52 > -3 ? 'var(--accent)' : 'var(--muted)'}">${d52 != null ? d52.toFixed(1) + '%' : '—'}</td>
+      <td style="text-align:right;color:var(--muted)">${r.market_cap_cr ? Math.round(r.market_cap_cr).toLocaleString('en-IN') : '—'}</td>
+      <td style="font-size:10px;color:var(--muted)">${esc(r.sector || '')}<br>${esc((r.industry || '').substring(0, 26))}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// AI PROVIDER SETTINGS
+// ══════════════════════════════════════════════════════════════════════════
+let llmCfg = null;
+
+function fillChatModels(cfg) {
+  const sel = document.getElementById('modelSel');
+  if(!sel) return;
+  const models = (cfg && cfg.models) || [];
+  sel.innerHTML = `<option value="auto">Provider default${cfg && cfg.model ? ' (' + esc(cfg.model) + ')' : ''}</option>` + models.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+  const note = document.getElementById('chatLocalNote');
+  if(note) note.textContent = (cfg && cfg.preset === 'ollama') ? '🔒 local model — private, but 1–5 min per answer on this laptop' : '';
+}
+
+async function loadLlmConfig() {
+  try {
+    llmCfg = await fetch(`${API}/api/llm/config`).then(r => r.json());
+    const sel = document.getElementById('llmPreset');
+    if(sel) {
+      sel.innerHTML = (llmCfg.presets || []).map(p => `<option value="${p.key}">${esc(p.label)}</option>`).join('');
+      sel.value = llmCfg.preset || 'groq';
+    }
+    const set = (id, v) => { const e = document.getElementById(id); if(e) e.value = v ?? ''; };
+    set('llmModel', llmCfg.model); set('llmKey', llmCfg.api_key); set('llmBase', llmCfg.base_url);
+    onLlmPreset(true);
+    fillChatModels(llmCfg);
+    const m = document.getElementById('llmMsg');
+    if(m) m.textContent = llmCfg.configured ? '' : (llmCfg.env_configured ? 'Using LLM_BASE_URL from .env' : 'Not configured yet');
+  } catch(_) {}
+}
+
+function onLlmPreset(keepValues = false) {
+  const key = document.getElementById('llmPreset')?.value;
+  const p = (llmCfg?.presets || []).find(x => x.key === key);
+  if(!p) return;
+  const base = document.getElementById('llmBase'), model = document.getElementById('llmModel'), note = document.getElementById('llmNote'), dl = document.getElementById('llmModels');
+  if(base && (!keepValues || !base.value) && p.base_url) base.value = p.base_url;
+  if(model && (!keepValues || !model.value) && p.models.length) model.value = p.models[0];
+  if(dl) dl.innerHTML = p.models.map(m => `<option value="${esc(m)}">`).join('');
+  if(note) note.innerHTML = `${esc(p.note || '')}${p.key_url ? ` &nbsp;<a href="${esc(p.key_url)}" target="_blank" rel="noopener">Get a key ↗</a>` : ''}`;
+}
+
+async function saveLlmConfig() {
+  const g = id => document.getElementById(id)?.value?.trim();
+  const m = document.getElementById('llmMsg');
+  try {
+    llmCfg = await fetch(`${API}/api/llm/config`, {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({preset: g('llmPreset'), base_url: g('llmBase'), api_key: g('llmKey'), model: g('llmModel')})}).then(r => r.json());
+    if(m) m.textContent = '✓ Saved — click "Test chat"';
+    fillChatModels(llmCfg);
+    checkHealth();
+  } catch(e) { if(m) m.textContent = 'Error: ' + e.message; }
+}
+
+async function testLlm() {
+  const m = document.getElementById('llmMsg');
+  if(m) m.textContent = 'Testing…';
+  try {
+    const r = await fetch(`${API}/api/llm/test`, {method: 'POST'}).then(r => r.json());
+    if(m) m.innerHTML = r.ok ? `✓ ${esc(r.model || '')} replied: "${esc((r.reply || '').slice(0, 40))}"` : `✗ ${esc(r.error || 'failed')}`;
+    checkHealth();
+  } catch(e) { if(m) m.textContent = 'Error: ' + e.message; }
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
@@ -3268,7 +3976,15 @@ checkHealth();
 loadMarket();
 loadNews();
 loadBriefing();
+loadDashIdeas();
+loadUniverses();
+loadLlmConfig();
 startSSE();
+setInterval(loadMarket, 60000);
+try {
+  const last = localStorage.getItem('mm_tab');
+  if(last && last !== 'dash' && document.getElementById('tab-' + last)) go(last);
+} catch(_) {}
 </script>
 </body>
 </html>

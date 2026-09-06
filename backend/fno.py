@@ -10,6 +10,20 @@ import httpx
 
 NSE_BASE = "https://www.nseindia.com"
 
+# 60-second cache so repeated clicks don't re-trigger NSE's bot detection
+import time as _time
+_NSE_CACHE: dict = {}
+
+
+def _cget(key):
+    hit = _NSE_CACHE.get(key)
+    return hit[1] if hit and hit[0] > _time.time() else None
+
+
+def _cset(key, value, ttl=60):
+    _NSE_CACHE[key] = (_time.time() + ttl, value)
+    return value
+
 _BROWSER = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -91,6 +105,9 @@ async def _nse_get_oc(endpoint: str) -> dict | list:
 # ── Option Chain ─────────────────────────────────────────────────────────────
 async def fetch_option_chain(symbol: str = "NIFTY") -> dict:
     symbol = symbol.upper()
+    cached = _cget(("oc", symbol))
+    if cached:
+        return cached
     try:
         data = await _nse_get_oc(f"/api/option-chain-indices?symbol={symbol}")
 
@@ -161,7 +178,7 @@ async def fetch_option_chain(symbol: str = "NIFTY") -> dict:
         elif pcr <= 0.7: sentiment = "Bearish — heavy call writing by sellers"
         else:            sentiment = "Neutral — balanced option activity"
 
-        return {
+        out = {
             "symbol":      symbol,
             "spot":        spot,
             "pcr":         pcr,
@@ -174,6 +191,9 @@ async def fetch_option_chain(symbol: str = "NIFTY") -> dict:
             "expiries":    expiries[:4],
             "chain":       chain,
         }
+        if chain:
+            _cset(("oc", symbol), out, 60)
+        return out
     except Exception as e:
         return {"error": str(e), "symbol": symbol}
 
@@ -220,6 +240,9 @@ async def fetch_most_active_fno() -> dict:
 
 # ── FII / DII ────────────────────────────────────────────────────────────────
 async def fetch_fii_dii() -> dict:
+    cached = _cget(("fiidii",))
+    if cached:
+        return cached
     try:
         rows = await _nse_get("/api/fiidiiTradeReact")
         result = {"fii": None, "dii": None, "date": ""}
@@ -237,6 +260,8 @@ async def fetch_fii_dii() -> dict:
                 result["fii"] = entry
             elif "DII" in cat:
                 result["dii"] = entry
+        if result["fii"] or result["dii"]:
+            _cset(("fiidii",), result, 300)
         return result
     except Exception as e:
         return {"error": str(e)}
@@ -244,9 +269,12 @@ async def fetch_fii_dii() -> dict:
 
 # ── All NSE indices ──────────────────────────────────────────────────────────
 async def fetch_all_indices() -> list:
+    cached = _cget(("indices",))
+    if cached:
+        return cached
     try:
         data = await _nse_get("/api/allIndices")
-        return [
+        return _cset(("indices",), [
             {
                 "name":       i.get("index", ""),
                 "last":       i.get("last", 0),
@@ -256,13 +284,13 @@ async def fetch_all_indices() -> list:
                 "low":        i.get("low", 0),
                 "open":       i.get("open", 0),
                 "prev_close": i.get("previousClose", 0),
-                "advances":   i.get("advances", 0),
-                "declines":   i.get("declines", 0),
-                "unchanged":  i.get("unchanged", 0),
+                "advances":   int(_to_float(i.get("advances", 0))),
+                "declines":   int(_to_float(i.get("declines", 0))),
+                "unchanged":  int(_to_float(i.get("unchanged", 0))),
             }
             for i in data.get("data", [])
             if i.get("index")
-        ]
+        ], 60)
     except Exception as e:
         return [{"error": str(e)}]
 

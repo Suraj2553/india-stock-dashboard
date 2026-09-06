@@ -8,8 +8,8 @@ set IMPORTS=%ROOT%imports
 
 echo.
 echo   +------------------------------------------+
-echo   ^|   MARKET MONITOR  v3.0                  ^|
-echo   ^|   Real-time ^| Charts ^| AI Analysis      ^|
+echo   ^|   MARKET MONITOR  v4.0                  ^|
+echo   ^|   Engine v4 ^| Buy Ideas ^| E-mail scans  ^|
 echo   +------------------------------------------+
 echo.
 
@@ -39,17 +39,14 @@ if not exist "%VENV%\Scripts\python.exe" (
 
 echo [.] Checking dependencies...
 "%VENV%\Scripts\python.exe" -m pip install --upgrade pip --quiet
-"%VENV%\Scripts\python.exe" -m pip install fastapi "uvicorn[standard]" httpx "pydantic>=2.11.0" --quiet
+"%VENV%\Scripts\python.exe" -m pip install fastapi "uvicorn[standard]" httpx "pydantic>=2.11.0" tradingview-screener --quiet
 if %errorlevel% neq 0 (echo [ERROR] pip install failed & pause & exit /b 1)
 echo [OK] Dependencies ready
 
-if not exist "%ROOT%.env" (echo [ERROR] .env file missing & pause & exit /b 1)
-findstr /C:"your_github_pat_here" "%ROOT%.env" >nul 2>&1
-if %errorlevel% equ 0 (
-    echo.
-    echo [!] GITHUB_TOKEN not set in .env - AI chat will not work
-    echo     Edit .env and paste your GitHub Personal Access Token
-    echo.
+if not exist "%ROOT%.env" (copy "%ROOT%.env.example" "%ROOT%.env" >nul & echo [OK] created .env from .env.example)
+if not exist "%ROOT%data\holdings.json" (copy "%ROOT%data\holdings.sample.json" "%ROOT%data\holdings.json" >nul & echo [OK] created data\holdings.json from sample - add your holdings in Settings)
+if not exist "%ROOT%.mcp.json" if exist "%ROOT%.mcp.template.json" (
+    powershell -NoProfile -Command "$j=(Get-Content '%ROOT%.mcp.template.json' -Raw) -replace '__TRADINGVIEW_MCP__', ('%ROOT%.venv\Scripts\tradingview-mcp.exe' -replace '\\','/'); [IO.File]::WriteAllText('%ROOT%.mcp.json', $j, (New-Object System.Text.UTF8Encoding $false))" >nul 2>&1
 )
 
 if not exist "%IMPORTS%" mkdir "%IMPORTS%"
@@ -67,7 +64,7 @@ echo   Portfolio  -^> http://localhost:8080  (Portfolio tab)
 echo   Charts     -^> http://localhost:8080  (Charts tab)
 echo   AI Chat    -^> http://localhost:8080  (AI Chat tab)
 echo.
-echo   Prices update every 5 seconds automatically.
+echo   Prices update every 5s in market hours. Scheduled scans + e-mail run while this window is open.
 echo   Press Ctrl+C to stop.
 echo.
 

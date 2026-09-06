@@ -13,12 +13,11 @@ NIFTY50 = [
     "HINDUNILVR", "ITC", "KOTAKBANK", "LT", "SBIN",
     "AXISBANK", "BAJFINANCE", "BHARTIARTL", "ASIANPAINT", "HCLTECH",
     "MARUTI", "SUNPHARMA", "TITAN", "NESTLEIND", "WIPRO",
-    "ULTRACEMCO", "NTPC", "POWERGRID", "TECHM", "TATAMOTORS",
-    "BAJAJ-AUTO", "DRREDDY", "DIVISLAB", "CIPLA", "COALINDIA",
+    "ULTRACEMCO", "NTPC", "POWERGRID", "TECHM", "TMPV", "BAJAJ-AUTO", "DRREDDY", "DIVISLAB", "CIPLA", "COALINDIA",
     "ONGC", "JSWSTEEL", "TATASTEEL", "ADANIENT", "ADANIPORTS",
     "INDUSINDBK", "BAJAJFINSV", "HEROMOTOCO", "EICHERMOT", "GRASIM",
     "HDFCLIFE", "SBILIFE", "APOLLOHOSP", "TATACONSUM", "BEL",
-    "HINDALCO", "LTIM", "M&M", "SHRIRAMFIN", "TRENT",
+    "HINDALCO", "M&M", "SHRIRAMFIN", "TRENT",
 ]
 
 # ── Nifty Next 50 ───────────────────────────────────────────────────────────
@@ -31,8 +30,8 @@ NIFTY_NEXT50 = [
     "MARICO", "MUTHOOTFIN", "NAUKRI", "NMDC", "OFSS",
     "PAYTM", "PNB", "PIDILITIND", "SRF", "SHREECEM",
     "SIEMENS", "TATAPOWER", "TORNTPHARM", "TVSMOTOR", "UNIONBANK",
-    "VBL", "VEDL", "ZOMATO", "RECLTD", "PFC",
-    "GODREJPROP", "ZYDUSLIFE", "BHARAT22ETF", "BPCL", "PETRONET",
+    "VBL", "VEDL", "ETERNAL", "RECLTD", "PFC",
+    "GODREJPROP", "ZYDUSLIFE", "BPCL", "PETRONET",
 ]
 
 # ── Nifty Midcap 100 (sample top 60) ────────────────────────────────────────
@@ -53,16 +52,14 @@ NIFTY_MIDCAP = [
 
 # ── Nifty Smallcap 100 (sample top 50) ─────────────────────────────────────
 NIFTY_SMALLCAP = [
-    "AIAENG", "AJANTPHARMA", "ALOKINDS", "AMARAJABAT", "AMBER",
+    "AIAENG", "AJANTPHARM", "ALOKINDS", "ARE&M", "AMBER",
     "ANANTRAJ", "ANGELONE", "APARINDS", "APLLTD", "APTUS",
     "ASAHIINDIA", "ASHIANA", "ASTERDM", "BASF", "BBTC",
-    "BIRLATYRES", "CAMPUS", "CAPLIPOINT", "CARBORUNIV", "CCL",
-    "CERA", "DCMSHRIRAM", "DEEPAKFERT", "DELTACORP", "DHARAMSI",
-    "EKC", "ELECON", "EPIGRAL", "EQUITASBNK", "ESABINDIA",
-    "FANTAIN", "FINEORG", "FORCEMOT", "GLENMARK", "GPIL",
+    "CAMPUS", "CAPLIPOINT", "CARBORUNIV", "CCL",
+    "CERA", "DCMSHRIRAM", "DEEPAKFERT", "DELTACORP", "EKC", "ELECON", "EPIGRAL", "EQUITASBNK", "ESABINDIA",
+    "FINEORG", "FORCEMOT", "GLENMARK", "GPIL",
     "GRAPHITE", "HFCL", "HINDCOPPER", "INDIAGLYCO", "INDRAMEDCO",
-    "INTELLECT", "IPCALAB", "IRCON", "JBMA", "JCHAC",
-    "JKPAPER", "JTEKTINDIA", "JUBLINGREA", "KALPATPOWR", "KIMS",
+    "INTELLECT", "IPCALAB", "IRCON", "JBMA", "JKPAPER", "JTEKTINDIA", "JUBLINGREA", "KPIL", "KIMS",
 ]
 
 # ── Sector-wise symbols ──────────────────────────────────────────────────────
@@ -71,41 +68,39 @@ SECTOR_SYMBOLS = {
         "HDFCBANK", "ICICIBANK", "KOTAKBANK", "AXISBANK", "SBIN",
         "INDUSINDBK", "BANDHANBNK", "FEDERALBNK", "IDFCFIRSTB", "AUBANK",
         "BANKBARODA", "CANBK", "PNB", "UNIONBANK", "YESBANK",
-        "IDBI", "KARNATAKABK", "SOUTHBANK", "DCBBANK", "CSBBANK",
+        "IDBI", "KTKBANK", "SOUTHBANK", "DCBBANK", "CSBBANK",
     ],
     "IT": [
         "TCS", "INFY", "HCLTECH", "WIPRO", "TECHM",
-        "LTIM", "MPHASIS", "OFSS", "PERSISTENT", "COFORGE",
+        "MPHASIS", "OFSS", "PERSISTENT", "COFORGE",
         "TATAELXSI", "KPITTECH", "LTTS", "CYIENT", "MASTEK",
-        "NAUKRI", "NEWGEN", "INTELLECT", "BIRLASOFT", "NIITTECH",
-    ],
+        "NAUKRI", "NEWGEN", "INTELLECT", "BSOFT", ],
     "Pharma & Healthcare": [
         "SUNPHARMA", "DRREDDY", "CIPLA", "DIVISLAB", "APOLLOHOSP",
         "LUPIN", "BIOCON", "AUROPHARMA", "TORNTPHARM", "ALKEM",
         "GLENMARK", "GRANULES", "GLAXO", "ZYDUSLIFE", "ABBOTINDIA",
-        "IPCALAB", "AJANTPHARMA", "APLLTD", "CAPLIPOINT", "NATCOPHARM",
+        "IPCALAB", "AJANTPHARM", "APLLTD", "CAPLIPOINT", "NATCOPHARM",
     ],
     "Auto & Ancillaries": [
-        "MARUTI", "TATAMOTORS", "M&M", "HEROMOTOCO", "EICHERMOT",
+        "MARUTI", "TMPV", "M&M", "HEROMOTOCO", "EICHERMOT",
         "BAJAJ-AUTO", "ASHOKLEY", "TVSMOTOR", "MOTHERSON", "BALKRISIND",
-        "BHARATFORG", "ESCORTS", "BOSCHLTD", "EXIDEIND", "AMARAJABAT",
-        "CRAFTSMAN", "ENDURANCE", "GABRIEL", "LUMAXIND", "SUPRAJIT",
+        "BHARATFORG", "ESCORTS", "BOSCHLTD", "EXIDEIND", "ARE&M", "CRAFTSMAN", "ENDURANCE", "GABRIEL", "LUMAXIND", "SUPRAJIT",
     ],
     "FMCG": [
         "HINDUNILVR", "ITC", "NESTLEIND", "BRITANNIA", "TATACONSUM",
         "DABUR", "MARICO", "GODREJCP", "EMAMILTD", "RADICO",
         "VBL", "COLPAL", "PGHH", "JYOTHYLAB", "BAJAJCON",
-        "VARUNBEV", "CCL", "DEVYANI", "JUBLFOOD", "VSTIND",
+        "CCL", "DEVYANI", "JUBLFOOD", "VSTIND",
     ],
     "Metal & Mining": [
         "JSWSTEEL", "TATASTEEL", "HINDALCO", "VEDL", "COALINDIA",
         "NMDC", "SAIL", "NATIONALUM", "HINDCOPPER", "WELCORP",
-        "APL", "RATNAMANI", "JINDALSAW", "JSL", "GPIL",
+        "APLAPOLLO", "RATNAMANI", "JINDALSAW", "JSL", "GPIL",
         "MOIL", "SANDUMA", "SURAJEST", "TINPLATE", "MIRZAINT",
     ],
     "Realty": [
         "DLF", "GODREJPROP", "OBEROIRLTY", "PRESTIGE", "BRIGADE",
-        "SOBHA", "SUNTECK", "PHOENIX", "LODHA", "MAHLIFE",
+        "SOBHA", "SUNTECK", "PHOENIXLTD", "LODHA", "MAHLIFE",
         "KOLTEPATIL", "SIGNATURE", "ANANTRAJ", "ASHIANA", "ELDEHSG",
     ],
     "Energy & Oil": [
@@ -123,18 +118,16 @@ SECTOR_SYMBOLS = {
     "Infrastructure & Capital Goods": [
         "LT", "ADANIPORTS", "ADANIENT", "GMRAIRPORT", "INDUSTOWER",
         "IRCTC", "SIEMENS", "ABB", "CUMMINSIND", "KEC",
-        "KALPATPOWR", "THERMAX", "BHEL", "BEL", "HAL",
+        "KPIL", "THERMAX", "BHEL", "BEL", "HAL",
         "BEML", "COCHINSHIP", "GRINDWELL", "TIINDIA", "ENGINERSIN",
     ],
     "Cement": [
-        "ULTRACEMCO", "SHREECEM", "AMBUJACEM", "ACC", "DALMIACEM",
-        "JKCEMENT", "RAMCOCEM", "HEIDELBERG", "BIRLACORP", "INDIACEM",
-        "PRISMJOHNS", "NUVOCO", "SAGAR", "HIL", "STARCEMENT",
+        "ULTRACEMCO", "SHREECEM", "AMBUJACEM", "ACC", "JKCEMENT", "RAMCOCEM", "HEIDELBERG", "BIRLACORP", "INDIACEM",
+        "NUVOCO", "SAGCEM", "STARCEMENT",
     ],
     "Consumer & Retail": [
         "TITAN", "TRENT", "PAGEIND", "BATAINDIA", "DMART",
-        "INDIAMART", "NYKAA", "VMART", "CAMPUS", "METRO",
-        "INDIGOPNTS", "ASTRAL", "HAVELLS", "VOLTAS", "WHIRLPOOL",
+        "INDIAMART", "NYKAA", "VMART", "CAMPUS", "METROBRAND", "INDIGOPNTS", "ASTRAL", "HAVELLS", "VOLTAS", "WHIRLPOOL",
     ],
     "Telecom & Media": [
         "BHARTIARTL", "IDEA", "TATACOMM", "INDUSTOWER",
@@ -152,25 +145,20 @@ SECTOR_SYMBOLS = {
 ETF_CATEGORIES = {
     "Broad Market Index": [
         "NIFTYBEES", "JUNIORBEES", "MON100", "SETFNIF50",
-        "ICICINIFTY", "HDFCNIFTY", "KOTAKNIFTY", "SBIETF",
-    ],
+        "NIFTYIETF", "HDFCNIFTY", "SETFNIF50", ],
     "Banking": [
         "BANKBEES", "PSUBNKBEES", "ICICIB22",
     ],
     "Gold & Silver": [
-        "GOLDBEES", "HDFCGOLD", "AXISGOLD", "KOTAKGOLD",
-        "SBIETFGOLD", "NIPPONSILV",
-    ],
+        "GOLDBEES", "HDFCGOLD", "SETFGOLD", "SILVERBEES", ],
     "Sectoral": [
         "ITBEES", "PHARMABEES", "INFRABEES", "AUTOBEES",
         "MAFANG", "CONSUMBEES",
     ],
     "International": [
-        "N100", "HNGSNGBEES", "NASDAQ100",
-    ],
+        "HNGSNGBEES", ],
     "Debt & Liquid": [
-        "LIQUIDBEES", "CPSEETF", "BHARAT22ETF",
-    ],
+        "LIQUIDBEES", "CPSEETF", ],
 }
 
 # ── Top Mutual Fund Scheme Codes (AMFI) ──────────────────────────────────────

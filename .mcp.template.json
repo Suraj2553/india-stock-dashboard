@@ -1,0 +1,17 @@
+{
+  "_comment": "MCP connectors for Claude Code / Cursor opened in this folder (generated from .mcp.template.json by setup / start scripts). growwmcp = official Groww MCP through mcp-remote@0.1.18 on port 52155 (Groww accepts only that redirect URL; needs Node 20+). Keep exactly one Groww entry. kite = Zerodha (remote HTTP). tradingview = local screener server from this project's venv. Remove any you do not use.",
+  "mcpServers": {
+    "growwmcp": {
+      "command": "npx",
+      "args": ["mcp-remote@0.1.18", "https://mcp.groww.in/mcp", "52155"]
+    },
+    "kite": {
+      "type": "http",
+      "url": "https://mcp.kite.trade/mcp"
+    },
+    "tradingview": {
+      "command": "__TRADINGVIEW_MCP__",
+      "args": []
+    }
+  }
+}

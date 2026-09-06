@@ -4,8 +4,8 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 
 echo ""
 echo "  +------------------------------------------+"
-echo "  |   MARKET MONITOR  v3.0                  |"
-echo "  |   Real-time | Charts | AI Analysis       |"
+echo "  |   MARKET MONITOR  v4.0                  |"
+echo "  |   Engine v4 | Buy Ideas | E-mail scans   |"
 echo "  +------------------------------------------+"
 echo ""
 
@@ -33,20 +33,16 @@ fi
 
 echo "[.] Checking dependencies..."
 "$ROOT/.venv/bin/python3" -m pip install --upgrade pip --quiet
-"$ROOT/.venv/bin/python3" -m pip install fastapi "uvicorn[standard]" httpx "pydantic>=2.11.0" --quiet
+"$ROOT/.venv/bin/python3" -m pip install fastapi "uvicorn[standard]" httpx "pydantic>=2.11.0" tradingview-screener --quiet
 echo "[OK] Dependencies ready"
 
-# Check .env
-if [ ! -f "$ROOT/.env" ]; then
-    echo "[ERROR] .env file missing"
-    exit 1
+# Config files (created from the samples on first run)
+[ -f "$ROOT/.env" ] || { cp "$ROOT/.env.example" "$ROOT/.env"; echo "[OK] created .env from .env.example"; }
+[ -f "$ROOT/data/holdings.json" ] || { cp "$ROOT/data/holdings.sample.json" "$ROOT/data/holdings.json"; echo "[OK] created data/holdings.json from sample - add your holdings in Settings"; }
+if [ ! -f "$ROOT/.mcp.json" ] && [ -f "$ROOT/.mcp.template.json" ]; then
+    sed "s#__TRADINGVIEW_MCP__#$ROOT/.venv/bin/tradingview-mcp#g" "$ROOT/.mcp.template.json" > "$ROOT/.mcp.json"
 fi
-if grep -q "your_github_pat_here" "$ROOT/.env"; then
-    echo ""
-    echo "[!] GITHUB_TOKEN not set in .env - AI chat will not work"
-    echo "    Edit .env and paste your GitHub Personal Access Token"
-    echo ""
-fi
+mkdir -p "$ROOT/data/scans"
 
 # Auto-import any Groww CSV files
 mkdir -p "$ROOT/imports"
