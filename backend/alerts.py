@@ -51,6 +51,10 @@ DEFAULT_CONFIG = {
     "max_picks": 8,
     "capital": 100000,              # ₹ used for position-size & profit projections
     "include_portfolio": True,
+    "scan_on_start": True,          # run a scan whenever the dashboard starts (if none in the last start_scan_gap_min)
+    "start_scan_gap_min": 120,
+    "low_price_max": 300,           # "low-price picks" section: price <= this ...
+    "low_price_min_score": 75,      # ... and score >= this
 }
 
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -271,14 +275,17 @@ async def run_scan(universe: str | None = None, send_email: bool | None = None,
             ok = [r for r in results if "error" not in r]
             ok.sort(key=lambda r: -r["score"])
 
-            # pass 2: full engine with forecast on the strongest candidates
+            # pass 2: full engine with forecast on the strongest candidates + low-price candidates
             STATUS["stage"] = "deep analysis of top candidates"
-            top_n = max(cfg.get("max_picks", 8) * 3, 15)
+            top_n = max(cfg.get("max_picks", 8) * 3, 20)
+            lp_max = float(cfg.get("low_price_max") or 300)
+            lp_min = int(cfg.get("low_price_min_score") or 75)
+            low_cands = [r for r in ok if (r.get("price") or 0) <= lp_max and r["score"] >= lp_min][:12]
             deep = {}
-            for r in ok[:top_n]:
-                p = await fetch_prediction(r["symbol"], with_forecast=True, capital=capital)
+            for r in list(dict.fromkeys([x["symbol"] for x in ok[:top_n] + low_cands])):
+                p = await fetch_prediction(r, with_forecast=True, capital=capital)
                 if "error" not in p:
-                    deep[r["symbol"]] = p
+                    deep[r] = p
             good_setups = ("Breakout", "Momentum Leader", "Pullback Buy", "Squeeze Breakout",
                            "Trend Continuation", "Oversold Reversal")
             picks = [_lite(deep[s]) for s in deep if deep[s]["score"] >= cfg.get("min_score", 65)
@@ -305,10 +312,14 @@ async def run_scan(universe: str | None = None, send_email: bool | None = None,
                 except Exception as e:
                     STATUS["last_error"] = f"portfolio: {e}"
 
+            # extra views: low-price picks, highest scores overall
+            low_price = [_lite(deep.get(r["symbol"], r)) for r in low_cands]
+            top_scores = [_lite(deep.get(r["symbol"], r)) for r in ok[:10]]
+
             # TradingView technical rating as an independent second opinion
             try:
                 from tradingview import fetch_ratings
-                rows_all = top_buys + watch + portfolio_rows
+                rows_all = top_buys + watch + portfolio_rows + low_price + top_scores
                 tvmap = await fetch_ratings([p["symbol"] for p in rows_all if p.get("symbol")])
                 for p in rows_all:
                     t = tvmap.get(p["symbol"])
@@ -316,6 +327,14 @@ async def run_scan(universe: str | None = None, send_email: bool | None = None,
                                 "perf_1m": t["perf_1m"], "sector": t["sector"], "industry": t["industry"]} if t else None)
             except Exception as e:
                 STATUS["last_error"] = f"tradingview: {e}"
+
+            # consensus: engine >= 70 AND TradingView Strong Buy
+            seen, consensus = set(), []
+            for p in top_scores + low_price + top_buys:
+                t = p.get("tv") or {}
+                if p["symbol"] not in seen and p["score"] >= 70 and (t.get("rating") or 0) >= 0.5:
+                    seen.add(p["symbol"]); consensus.append(p)
+            consensus.sort(key=lambda p: -(p["score"] + 20 * (p.get("tv") or {}).get("rating", 0)))
 
             sells = [_lite(r) for r in ok if r["score"] <= 30][:8]
             report = {
@@ -328,6 +347,8 @@ async def run_scan(universe: str | None = None, send_email: bool | None = None,
                 "market": {"indices": overview, "regime": _regime(overview, nifty_pred, movers),
                            "movers": {"gainers": movers.get("gainers", [])[:5], "losers": movers.get("losers", [])[:5]}},
                 "top_buys": top_buys, "watchlist": watch, "sells": sells,
+                "low_price_picks": low_price, "low_price_rule": {"max_price": lp_max, "min_score": lp_min},
+                "top_scores": top_scores, "consensus": consensus[:8],
                 "portfolio": portfolio_rows, "portfolio_summary": port_summary,
                 "all": [_lite(r) for r in ok],
                 "distribution": {v: sum(1 for r in ok if r["verdict"] == v)
@@ -486,6 +507,30 @@ def build_email_html(rep: dict) -> str:
                 f"<td style='padding:5px 8px'>{_fmt(tp.get('target1'))}</td></tr>")
 
     watch_html = "".join(row(p) for p in rep.get("watchlist", []))
+
+    def mini_table(rows_, empty_msg):
+        def r2(p):
+            tp = p.get("trade_plan") or {}; fc = p.get("forecast") or {}; t = p.get("tv") or {}
+            return (f"<tr><td style='padding:5px 8px;font-weight:700'>{p['symbol']}</td><td style='padding:5px 8px'>{_fmt(p['price'])}</td>"
+                    f"<td style='padding:5px 8px'>{p['score']} · {p['verdict']}</td><td style='padding:5px 8px'>{t.get('rating_label', '—')}</td>"
+                    f"<td style='padding:5px 8px'>{p['setup']}</td><td style='padding:5px 8px;color:#c0392b'>{_fmt(tp.get('stop'))}</td>"
+                    f"<td style='padding:5px 8px;color:#0a8f6a'>{_fmt(tp.get('target1'))} ({_pct(tp.get('target1_pct'))})</td>"
+                    f"<td style='padding:5px 8px'>{_pct(fc.get('expected_return_pct')) if fc else '—'} / {str(int(fc.get('hit_rate_pct', 0))) + '%' if fc else '—'}</td></tr>")
+        body = "".join(r2(p) for p in rows_) or f"<tr><td colspan=8 style='padding:8px;color:#999'>{empty_msg}</td></tr>"
+        return f"""<div style="background:#fff;border-radius:8px;border:1px solid #e3e3e3;overflow:hidden">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <tr style="background:#f7f7f7"><th style="text-align:left;padding:6px 8px">Symbol</th><th style="text-align:left;padding:6px 8px">Price</th><th style="text-align:left;padding:6px 8px">Score</th><th style="text-align:left;padding:6px 8px">TV</th><th style="text-align:left;padding:6px 8px">Setup</th><th style="text-align:left;padding:6px 8px">Stop</th><th style="text-align:left;padding:6px 8px">T1</th><th style="text-align:left;padding:6px 8px">Model 1M / hit</th></tr>
+          {body}
+        </table></div>"""
+
+    lpr = rep.get("low_price_rule") or {"max_price": 300, "min_score": 75}
+    extra_html = f"""
+      <h2 style="font-size:16px;margin:18px 0 6px">🤝 Consensus — engine ≥ 70 and TradingView Strong Buy</h2>
+      {mini_table(rep.get('consensus', []), 'No stock has both engines strongly bullish today.')}
+      <h2 style="font-size:16px;margin:18px 0 6px">💸 Low-price picks — ≤ {_fmt(lpr['max_price'], nd=0)} and score ≥ {lpr['min_score']}</h2>
+      {mini_table(rep.get('low_price_picks', []), 'No low-priced stock clears the bar today.')}
+      <h2 style="font-size:16px;margin:18px 0 6px">🏆 Highest scores overall</h2>
+      {mini_table(rep.get('top_scores', []), 'Nothing scanned.')}"""
     port_rows = ""
     for h in rep.get("portfolio", []):
         if h.get("error"):
@@ -529,6 +574,8 @@ def build_email_html(rep: dict) -> str:
         </table>
       </div>
 
+      {extra_html}
+
       <h2 style="font-size:16px;margin:18px 0 6px">💼 Your holdings — {port_sum}</h2>
       <div style="background:#fff;border-radius:8px;border:1px solid #e3e3e3;overflow:hidden">
         <table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -555,6 +602,13 @@ def build_email_text(rep: dict) -> str:
         lines.append(f"{i}. {p['symbol']} {p['score']}/100 {p['verdict']} [{p['setup']}] @ {p['price']} | stop {tp.get('stop')} | T1 {tp.get('target1')} ({tp.get('target1_pct')}%) | T2 {tp.get('target2')} | R:R {tp.get('risk_reward')}")
     if not rep.get("top_buys"):
         lines.append("No setup cleared the quality bar today.")
+    for title, key in (("CONSENSUS (engine + TradingView)", "consensus"), ("LOW-PRICE PICKS", "low_price_picks"), ("HIGHEST SCORES", "top_scores")):
+        lines += ["", title]
+        for p in rep.get(key, []) or []:
+            tp = p.get("trade_plan") or {}
+            lines.append(f"- {p['symbol']} ₹{p['price']} {p['score']} {p['verdict']} [{p['setup']}] stop {tp.get('stop')} T1 {tp.get('target1')} TV {(p.get('tv') or {}).get('rating_label', '—')}")
+        if not rep.get(key):
+            lines.append("- none")
     lines += ["", "HOLDINGS"]
     for h in rep.get("portfolio", []):
         lines.append(f"- {h['symbol']}: {h.get('score')} {h.get('verdict')} → {h.get('action')}")
@@ -686,7 +740,10 @@ def scheduler_status() -> dict:
         while cfg.get("weekdays_only") and nxt.weekday() >= 5:
             nxt += timedelta(days=1)
         next_run = f"{nxt.strftime('%a %d %b')} {sorted(cfg['times'])[0]} IST"
+    if not cfg.get("times"):
+        next_run = "on dashboard start" if cfg.get("scan_on_start") else "no schedule"
     return {"enabled": cfg.get("enabled"), "times": cfg.get("times"), "weekdays_only": cfg.get("weekdays_only"),
+            "scan_on_start": cfg.get("scan_on_start"),
             "universe": cfg.get("universe"), "ran_today": state.get(today, []), "next_run": next_run,
             "now_ist": now.strftime("%H:%M"), "email_configured": public_config(cfg)["smtp_configured"],
             "email_enabled": cfg.get("email_enabled"), **STATUS}
@@ -720,9 +777,38 @@ async def _tick():
               f"{'sent to ' + str(em.get('to')) if em.get('sent') else (em.get('error') or 'not requested')}")
 
 
+async def _startup_scan():
+    """'Scan when the dashboard starts' — unless a scan already ran recently."""
+    cfg = load_config()
+    if not cfg.get("scan_on_start"):
+        return
+    gap = int(cfg.get("start_scan_gap_min") or 120)
+    rep = latest_report()
+    if rep:
+        try:
+            age = (datetime.now(IST) - datetime.fromisoformat(rep["generated_at"])).total_seconds() / 60
+            if age < gap:
+                print(f"[alerts] startup scan skipped — last scan {age:.0f} min ago (< {gap} min)")
+                return
+        except Exception:
+            pass
+    print("[alerts] running startup scan …")
+    r = await run_scan(slot="startup")
+    if "error" in r:
+        print(f"[alerts] startup scan failed: {r['error']}")
+    else:
+        em = r.get("email", {})
+        print(f"[alerts] startup scan done — {len(r.get('top_buys', []))} buys, {len(r.get('low_price_picks', []))} low-price picks; "
+              f"e-mail: {'sent to ' + str(em.get('to')) if em.get('sent') else (em.get('error') or 'not requested')}")
+
+
 async def scheduler_loop():
-    """Run forever inside the server: check every 60 s whether a slot is due."""
+    """Run forever inside the server: startup scan, then check every 60 s whether a slot is due."""
     await asyncio.sleep(8)   # let the server come up first
+    try:
+        await _startup_scan()
+    except Exception as e:
+        print(f"[alerts] startup scan error: {e}")
     while True:
         try:
             await _tick()

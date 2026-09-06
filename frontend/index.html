@@ -725,6 +725,7 @@ a{color:var(--accent)}
   <div id="ideasStatus" style="font-size:11px;color:var(--muted);margin-bottom:10px"></div>
   <div id="ideasRegime"></div>
   <div id="ideasPicks"><div class="ld"><div class="sp"></div>Loading latest scan…</div></div>
+  <div id="ideasExtra"></div>
   <div class="two gap">
     <div class="card"><div class="ct">👀 Watch-list — close to a trigger</div><div id="ideasWatch"></div></div>
     <div class="card"><div class="ct">💼 Your holdings — action plan</div><div id="ideasPortfolio"></div></div>
@@ -1308,8 +1309,9 @@ a{color:var(--accent)}
       <span id="alertSched" style="font-size:10px;color:var(--muted)"></span>
     </div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.6">
-      Twice a day (pre-open plan &amp; post-close review) the engine scans your chosen universe, ranks the setups, analyses your holdings and e-mails you the
-      buys with entry / stop / targets / projected profit. Runs while this dashboard is open; a slot missed because the laptop was off runs as soon as it is back on.
+      The engine scans your chosen universe, ranks the setups, analyses your holdings and e-mails you the buys with entry / stop / targets / projected profit —
+      plus consensus picks (engine + TradingView), low-price picks and the highest scores overall. It runs <b>when the dashboard starts</b> (unless a scan ran in the last 2 hours)
+      and/or at fixed times; a fixed slot missed because the laptop was off runs as soon as it is back on.
       To also run without the dashboard, register a Windows task: <code>powershell -ExecutionPolicy Bypass -File scripts\install_scheduler.ps1</code>
     </div>
     <div class="three" style="gap:10px">
@@ -1349,9 +1351,18 @@ a{color:var(--accent)}
         <label class="sl">Capital for position sizing (₹)</label>
         <input class="ci" id="alCap" placeholder="100000" style="width:100%;min-height:34px;height:34px">
       </div>
+      <div>
+        <label class="sl">Low-price picks: max price (₹)</label>
+        <input class="ci" id="alLowMax" placeholder="300" style="width:100%;min-height:34px;height:34px">
+      </div>
+      <div>
+        <label class="sl">Low-price picks: min score</label>
+        <input class="ci" id="alLowMin" placeholder="75" style="width:100%;min-height:34px;height:34px">
+      </div>
     </div>
     <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:12px;font-size:11px">
-      <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="alEnabled"> Scheduled scans on</label>
+      <label style="display:flex;align-items:center;gap:5px" title="Runs a scan a few seconds after the dashboard starts, unless one already ran in the last 2 hours"><input type="checkbox" id="alOnStart"> Scan when the dashboard starts</label>
+      <label style="display:flex;align-items:center;gap:5px" title="Also run at the fixed times above (leave the times blank to disable)"><input type="checkbox" id="alEnabled"> Scheduled scans on</label>
       <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="alEmail"> E-mail the report</label>
       <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="alWeekdays"> Weekdays only</label>
       <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="alPortfolio"> Include my holdings</label>
@@ -3422,7 +3433,8 @@ async function loadIdeas(force = false) {
 async function refreshIdeasSched() {
   try {
     const st = await fetch(`${API}/api/scan/status`).then(r => r.json());
-    const txt = `Scheduled: ${st.enabled ? (st.times || []).join(' & ') + ' IST' : 'off'} · next ${st.next_run || '—'} · e-mail ${st.email_configured ? (st.email_enabled ? 'on' : 'configured, off') : 'not configured (Settings)'}`;
+    const when = [st.scan_on_start ? 'on dashboard start' : null, st.enabled && (st.times || []).length ? (st.times || []).join(' & ') + ' IST' : null].filter(Boolean).join(' + ') || 'off';
+    const txt = `Scans: ${when} · next ${st.next_run || '—'} · e-mail ${st.email_configured ? (st.email_enabled ? 'on' : 'configured, off') : 'not configured (Settings)'}`;
     const a = document.getElementById('ideasSched'); if(a) a.textContent = txt;
     const b = document.getElementById('alertSched'); if(b) b.textContent = txt;
     if(st.running && !ideasPolling) pollScan();
@@ -3526,6 +3538,20 @@ function renderIdeas(rep) {
       ? `<div class="ct">🎯 High-conviction buys (${rep.top_buys.length})</div><div class="pick-grid">${rep.top_buys.map((p, i) => pickCard(p, i + 1, cap)).join('')}</div>`
       : `<div class="card" style="border-left:4px solid var(--yellow)"><div style="font-family:'Syne',sans-serif;color:#fff;font-size:14px;margin-bottom:4px">No high-conviction buy today</div><div style="font-size:11px;color:var(--muted)">Nothing scored above the bar with a valid setup. A bull with discipline waits — the watch-list below shows what is closest to a trigger. Lower the minimum score in Settings if you want more (lower-quality) ideas.</div></div>`;
   }
+  const extra = document.getElementById('ideasExtra');
+  if(extra) {
+    const mini = (rows, empty) => rows && rows.length ? `<table class="tbl"><thead><tr><th>Symbol</th><th>Price</th><th>Score</th><th>TV</th><th>Setup</th><th>Stop</th><th>Target 1</th><th title="Average 21-session return and hit-rate on this stock's similar-scoring days">Model 1M / hit</th></tr></thead><tbody>${rows.map(p => {
+      const tp = p.trade_plan || {}, fc = p.forecast, t = p.tv;
+      return `<tr onclick="showStockPopup('${esc(p.symbol)}')"><td><b style="color:#fff">${esc(p.symbol)}</b></td><td>₹${p.price}</td><td><span class="sig-badge ${verdictBadgeClass(p.verdict)}">${p.score}</span></td><td>${t ? tvBadge(t) : '—'}</td><td>${setupPill(p.setup)}</td><td style="color:#ff4d6d">₹${tp.stop ?? '—'}</td><td style="color:var(--accent)">₹${tp.target1 ?? '—'} <span style="font-size:9px">${fp(tp.target1_pct || 0)}</span></td><td style="color:${fc ? (fc.expected_return_pct > 0 ? 'var(--accent)' : '#ff4d6d') : 'var(--muted)'}">${fc ? fp(fc.expected_return_pct) + ' / ' + fc.hit_rate_pct + '%' : '—'}</td></tr>`;
+    }).join('')}</tbody></table>` : `<div style="font-size:11px;color:var(--muted)">${empty}</div>`;
+    const lpr = rep.low_price_rule || {max_price: 300, min_score: 75};
+    extra.innerHTML = `
+      <div class="card gap"><div class="ct">🤝 Consensus — engine ≥ 70 and TradingView Strong Buy</div>${mini(rep.consensus, 'No stock has both engines strongly bullish in this scan.')}</div>
+      <div class="two gap">
+        <div class="card"><div class="ct">💸 Low-price picks — ≤ ₹${Math.round(lpr.max_price).toLocaleString('en-IN')} and score ≥ ${lpr.min_score}</div>${mini(rep.low_price_picks, 'No low-priced stock clears the bar in this scan (adjust the rule in Settings).')}</div>
+        <div class="card"><div class="ct">🏆 Highest scores overall</div>${mini(rep.top_scores, 'Nothing scanned.')}</div>
+      </div>`;
+  }
   const watch = document.getElementById('ideasWatch');
   if(watch) watch.innerHTML = rep.watchlist.length ? `<table class="tbl"><thead><tr><th>Symbol</th><th>Score</th><th>Setup</th><th>Price</th><th>Stop</th><th>T1</th></tr></thead><tbody>${rep.watchlist.map(p => {
     const tp = p.trade_plan || {};
@@ -3596,6 +3622,7 @@ async function loadAlertConfig() {
     const chk = (id, v) => { const e = document.getElementById(id); if(e) e.checked = !!v; };
     set('alTo', c.email_to); set('alUser', c.smtp_user); set('alPass', c.smtp_pass); set('alHost', c.smtp_host); set('alPort', c.smtp_port);
     set('alTimes', (c.times || []).join(', ')); set('alMin', c.min_score); set('alCap', c.capital);
+    set('alLowMax', c.low_price_max); set('alLowMin', c.low_price_min_score); chk('alOnStart', c.scan_on_start);
     const u = document.getElementById('alUniverse'); if(u && [...u.options].some(o => o.value === c.universe)) u.value = c.universe;
     chk('alEnabled', c.enabled); chk('alEmail', c.email_enabled); chk('alWeekdays', c.weekdays_only); chk('alPortfolio', c.include_portfolio);
     try { if(c.capital) localStorage.setItem('mm_capital', String(c.capital)); } catch(_) {}
@@ -3606,7 +3633,9 @@ async function saveAlertConfig() {
   const g = id => document.getElementById(id)?.value?.trim();
   const body = {
     email_to: g('alTo'), smtp_user: g('alUser'), smtp_pass: g('alPass'), smtp_host: g('alHost') || 'smtp.gmail.com',
-    smtp_port: parseInt(g('alPort') || '587', 10), times: (g('alTimes') || '08:45, 15:45').split(',').map(s => s.trim()).filter(Boolean),
+    smtp_port: parseInt(g('alPort') || '587', 10), times: (g('alTimes') || '').split(',').map(s => s.trim()).filter(Boolean),
+    scan_on_start: document.getElementById('alOnStart')?.checked,
+    low_price_max: parseFloat(g('alLowMax') || '300'), low_price_min_score: parseInt(g('alLowMin') || '75', 10),
     universe: document.getElementById('alUniverse')?.value, min_score: parseInt(g('alMin') || '65', 10), capital: parseFloat(g('alCap') || '100000'),
     enabled: document.getElementById('alEnabled')?.checked, email_enabled: document.getElementById('alEmail')?.checked,
     weekdays_only: document.getElementById('alWeekdays')?.checked, include_portfolio: document.getElementById('alPortfolio')?.checked,

@@ -75,7 +75,8 @@ Windows: `start.bat` · Mac/Linux: `bash start.sh` → open **http://localhost:8
    - Outlook: `smtp.office365.com` : 587 · Yahoo: `smtp.mail.yahoo.com` : 465.
    - The same values can be put in `.env` (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `ALERT_EMAIL_TO`).
 2. Pick the universe (default Nifty 100), the times (default **08:45** pre-open plan and **15:45** post-close review, IST), the minimum score for a "buy" and the capital used for position sizing / profit projections.
-3. That's it. While the dashboard is running, the scheduler checks every minute. **If the laptop was off at a scheduled time, the scan runs as soon as the dashboard is next started** (catch-up), so you still get your two reports on late-boot days. Results also appear instantly in the **Buy Ideas** tab.
+3. By default a scan also runs **every time the dashboard starts** (skipped if one ran in the last 2 hours) — leave the times blank if that is all you want. Each report contains the ranked buys, a **consensus** list (engine ≥ 70 *and* TradingView Strong Buy), **low-price picks** (price ≤ ₹300 and score ≥ 75, both adjustable) and the **highest scores overall**.
+4. While the dashboard is running, the scheduler checks every minute. **If the laptop was off at a scheduled time, the scan runs as soon as the dashboard is next started** (catch-up), so you still get your two reports on late-boot days. Results also appear instantly in the **Buy Ideas** tab.
 
 To run **without** the dashboard open, register Windows Task Scheduler jobs (they also catch up after a late boot):
 ```powershell
