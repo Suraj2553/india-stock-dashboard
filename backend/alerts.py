@@ -544,13 +544,18 @@ def build_email_html(rep: dict) -> str:
             </div>
             <div style="font-size:15px;font-weight:700">{_fmt(p['price'])}</div>
           </div>
-          <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:12px">
-            <tr style="background:#f7f7f7">
-              <td style="padding:6px 8px"><b>Entry</b><br>{_fmt(tp.get('entry'))}<br><span style="color:#777;font-size:11px">{tp.get('entry_note','')}</span></td>
-              <td style="padding:6px 8px"><b>Stop-loss</b><br><span style="color:#c0392b">{_fmt(tp.get('stop'))} ({_pct(tp.get('stop_pct'))})</span></td>
+          <table role="presentation" style="width:100%;border-collapse:collapse;margin-top:10px;font-size:12px;background:#f7f7f7">
+            <tr>
+              <td width="50%" style="padding:6px 8px"><b>Entry</b><br>{_fmt(tp.get('entry'))}</td>
+              <td width="50%" style="padding:6px 8px"><b>Stop-loss</b><br><span style="color:#c0392b">{_fmt(tp.get('stop'))} ({_pct(tp.get('stop_pct'))})</span></td>
+            </tr>
+            <tr>
               <td style="padding:6px 8px"><b>Target 1</b><br><span style="color:#0a8f6a">{_fmt(tp.get('target1'))} ({_pct(tp.get('target1_pct'))})</span></td>
               <td style="padding:6px 8px"><b>Target 2</b><br><span style="color:#0a8f6a">{_fmt(tp.get('target2'))} ({_pct(tp.get('target2_pct'))})</span></td>
-              <td style="padding:6px 8px"><b>R : R</b><br>{tp.get('risk_reward','—')}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 8px"><b>Reward : Risk</b><br>{tp.get('risk_reward','—')} : 1</td>
+              <td style="padding:6px 8px"><span style="color:#777;font-size:11px">{tp.get('entry_note','')}</span></td>
             </tr>
           </table>
           <div style="font-size:12px;margin-top:8px;color:#333">
@@ -565,30 +570,41 @@ def build_email_html(rep: dict) -> str:
     picks_html = "".join(pick_block(p, i + 1) for i, p in enumerate(rep.get("top_buys", []))) or \
         "<div style='padding:14px;background:#fff8e1;border:1px solid #f0d78c;border-radius:8px'>No setup cleared the quality bar today (score ≥ {} with a valid setup). A bull's discipline: no trade is a position. Watch-list below.</div>".format(load_config().get("min_score", 65))
 
-    def row(p):
-        tp = p.get("trade_plan") or {}
-        tvl = (p.get("tv") or {}).get("rating_label", "—")
-        return (f"<tr><td style='padding:5px 8px;font-weight:700'>{p['symbol']}</td><td style='padding:5px 8px'>{p['score']}</td>"
-                f"<td style='padding:5px 8px'>{p['verdict']} <span style='color:#777;font-size:10px'>· TV {tvl}</span></td><td style='padding:5px 8px'>{p['setup']}</td>"
-                f"<td style='padding:5px 8px'>{_fmt(p['price'])}</td><td style='padding:5px 8px'>{_fmt(tp.get('stop'))}</td>"
-                f"<td style='padding:5px 8px'>{_fmt(tp.get('target1'))}</td></tr>")
 
-    watch_html = "".join(row(p) for p in rep.get("watchlist", []))
+    # Phone-safe: stacked cards instead of wide tables (7-8 column tables get cut off in mobile mail apps)
+    def _card(title_left, title_right, lines):
+        rows = "".join(f"<div style='font-size:12px;color:#333;margin-top:3px;line-height:1.5'>{l}</div>" for l in lines if l)
+        return (f"<div style='border-bottom:1px solid #eee;padding:10px 12px'>"
+                f"<table role='presentation' width='100%' style='border-collapse:collapse'><tr>"
+                f"<td style='font-size:14px;font-weight:800;color:#111'>{title_left}</td>"
+                f"<td align='right' style='white-space:nowrap'>{title_right}</td></tr></table>{rows}</div>")
+
+    def _badge(text, color, bg):
+        return f"<span style='font-size:11px;background:{bg};color:{color};border-radius:4px;padding:2px 7px;white-space:nowrap'>{text}</span>"
 
     def mini_table(rows_, empty_msg):
-        def r2(p):
-            tp = p.get("trade_plan") or {}; fc = p.get("forecast") or {}; t = p.get("tv") or {}
-            return (f"<tr><td style='padding:5px 8px;font-weight:700'>{p['symbol']}</td><td style='padding:5px 8px'>{_fmt(p['price'])}</td>"
-                    f"<td style='padding:5px 8px'>{p['score']} · {p['verdict']}</td><td style='padding:5px 8px'>{t.get('rating_label', '—')}</td>"
-                    f"<td style='padding:5px 8px'>{p['setup']}</td><td style='padding:5px 8px;color:#c0392b'>{_fmt(tp.get('stop'))}</td>"
-                    f"<td style='padding:5px 8px;color:#0a8f6a'>{_fmt(tp.get('target1'))} ({_pct(tp.get('target1_pct'))})</td>"
-                    f"<td style='padding:5px 8px'>{_pct(fc.get('expected_return_pct')) if fc else '—'} / {str(int(fc.get('hit_rate_pct', 0))) + '%' if fc else '—'}</td></tr>")
-        body = "".join(r2(p) for p in rows_) or f"<tr><td colspan=8 style='padding:8px;color:#999'>{empty_msg}</td></tr>"
-        return f"""<div style="background:#fff;border-radius:8px;border:1px solid #e3e3e3;overflow:hidden">
-        <table style="width:100%;border-collapse:collapse;font-size:12px">
-          <tr style="background:#f7f7f7"><th style="text-align:left;padding:6px 8px">Symbol</th><th style="text-align:left;padding:6px 8px">Price</th><th style="text-align:left;padding:6px 8px">Score</th><th style="text-align:left;padding:6px 8px">TV</th><th style="text-align:left;padding:6px 8px">Setup</th><th style="text-align:left;padding:6px 8px">Stop</th><th style="text-align:left;padding:6px 8px">T1</th><th style="text-align:left;padding:6px 8px">Model 1M / hit</th></tr>
-          {body}
-        </table></div>"""
+        cards = []
+        for p in rows_:
+            tp = p.get("trade_plan") or {}
+            fc = p.get("forecast") or {}
+            t = p.get("tv") or {}
+            score_col = "#0a8f6a" if p["score"] >= 62 else "#b8860b" if p["score"] >= 45 else "#c0392b"
+            left = f"{p['symbol']} <span style='font-weight:400;color:#666;font-size:12px'>{_fmt(p['price'])}</span>"
+            right = _badge(f"{p['verdict']} · {p['score']}", "#fff", score_col)
+            tv_txt = f" &nbsp;·&nbsp; TradingView: <b>{t['rating_label']}</b>" if t.get("rating_label") else ""
+            lines = [
+                f"<b>{p['setup']}</b>{tv_txt}",
+                f"Stop <b style='color:#c0392b'>{_fmt(tp.get('stop'))} ({_pct(tp.get('stop_pct'))})</b>"
+                f" &nbsp;·&nbsp; T1 <b style='color:#0a8f6a'>{_fmt(tp.get('target1'))} ({_pct(tp.get('target1_pct'))})</b>"
+                f" &nbsp;·&nbsp; T2 {_fmt(tp.get('target2'))}",
+                (f"<span style='color:#666;font-size:11px'>Model {fc.get('horizon_days', 21)}d: "
+                 f"{_pct(fc.get('expected_return_pct'))} avg · hit {fc.get('hit_rate_pct', 0):.0f}% over {fc.get('samples')} similar days</span>") if fc else "",
+            ]
+            cards.append(_card(left, right, lines))
+        body = "".join(cards) or f"<div style='padding:10px 12px;color:#999;font-size:12px'>{empty_msg}</div>"
+        return f"<div style='background:#fff;border-radius:8px;border:1px solid #e3e3e3;overflow:hidden'>{body}</div>"
+
+    watch_html = mini_table(rep.get("watchlist", []), "Nothing close to a trigger.")
 
     lpr = rep.get("low_price_rule") or {"max_price": 300, "min_score": 75}
     extra_html = f"""
@@ -598,37 +614,38 @@ def build_email_html(rep: dict) -> str:
       {mini_table(rep.get('low_price_picks', []), 'No low-priced stock clears the bar today.')}
       <h2 style="font-size:16px;margin:18px 0 6px">🏆 Highest scores overall</h2>
       {mini_table(rep.get('top_scores', []), 'Nothing scanned.')}"""
-    port_rows = ""
+    port_cards = []
     for h in rep.get("portfolio", []):
         if h.get("error"):
-            port_rows += f"<tr><td style='padding:5px 8px;font-weight:700'>{h['symbol']}</td><td colspan=6 style='padding:5px 8px;color:#999'>{h['error']}</td></tr>"
+            port_cards.append(_card(h["symbol"], "", [f"<span style='color:#999'>{h['error']}</span>"]))
             continue
         col = "#0a8f6a" if (h.get("pnl_pct") or 0) >= 0 else "#c0392b"
         acol = "#0a8f6a" if h["action"].startswith(("Add", "Hold")) else "#c0392b"
         tp = h.get("trade_plan") or {}
-        port_rows += (f"<tr><td style='padding:5px 8px;font-weight:700'>{h['symbol']}</td><td style='padding:5px 8px'>{_fmt(h.get('current_price'))}</td>"
-                      f"<td style='padding:5px 8px;color:{col}'>{_pct(h.get('pnl_pct'))}</td><td style='padding:5px 8px'>{h['score']} · {h['verdict']}</td>"
-                      f"<td style='padding:5px 8px;color:{acol};font-weight:700'>{h['action']}</td><td style='padding:5px 8px'>{_fmt(tp.get('stop'))}</td><td style='padding:5px 8px'>{h['setup']}</td></tr>")
+        left = (f"{h['symbol']} <span style='font-weight:400;color:#666;font-size:12px'>{_fmt(h.get('current_price'))}</span> "
+                f"<span style='font-weight:700;color:{col};font-size:12px'>{_pct(h.get('pnl_pct'))}</span>")
+        port_cards.append(_card(left, _badge(h["action"], "#fff", acol), [
+            f"{h['score']} · {h['verdict']} &nbsp;·&nbsp; <b>{h['setup']}</b>",
+            f"Stop <b style='color:#c0392b'>{_fmt(tp.get('stop'))}</b> &nbsp;·&nbsp; T1 {_fmt(tp.get('target1'))} &nbsp;·&nbsp; value {_fmt(h.get('current_value'), nd=0)}",
+        ]))
+    port_rows = "".join(port_cards)
     # mutual funds
-    mf_rows_html = ""
+    mf_cards = []
     for m in rep.get("mutual_funds", []) or []:
         col = "#0a8f6a" if (m.get("pnl_pct") or 0) >= 0 else "#c0392b"
         acol = "#0a8f6a" if m.get("action", "").startswith("Hold") else "#c0392b"
-        rcell = lambda v: (f"<td style='padding:5px 8px;color:{'#0a8f6a' if (v or 0) >= 0 else '#c0392b'}'>{_pct(v)}</td>")
-        mf_rows_html += (f"<tr><td style='padding:5px 8px'><b>{m.get('name', '')[:44]}</b>"
-                         f"<div style='font-size:10px;color:#777'>{m.get('category') or ''}</div></td>"
-                         f"<td style='padding:5px 8px'>{_fmt(m.get('current_value'), nd=0)}</td>"
-                         f"<td style='padding:5px 8px;color:{col}'>{_fmt(m.get('pnl'), nd=0)} ({_pct(m.get('pnl_pct'))})</td>"
-                         + rcell(m.get("ret_1m")) + rcell(m.get("ret_6m")) + rcell(m.get("ret_1y")) +
-                         f"<td style='padding:5px 8px;color:{acol};font-weight:700'>{m.get('action', '')}"
-                         f"<div style='font-size:10px;color:#777;font-weight:400'>{m.get('note', '')}</div></td></tr>")
+        rr = lambda label, v: f"{label} <b style='color:{'#0a8f6a' if (v or 0) >= 0 else '#c0392b'}'>{_pct(v)}</b>"
+        left = f"<span style='font-size:13px'>{m.get('name', '')[:46]}</span>"
+        mf_cards.append(_card(left, _badge(m.get("action", ""), "#fff", acol), [
+            f"<span style='color:#777;font-size:11px'>{m.get('category') or ''}</span>",
+            f"Value {_fmt(m.get('current_value'), nd=0)} &nbsp;·&nbsp; P&L <b style='color:{col}'>{_fmt(m.get('pnl'), nd=0)} ({_pct(m.get('pnl_pct'))})</b>",
+            f"{rr('1M', m.get('ret_1m'))} &nbsp;·&nbsp; {rr('6M', m.get('ret_6m'))} &nbsp;·&nbsp; {rr('1Y', m.get('ret_1y'))}",
+            f"<span style='color:#666;font-size:11px'>{m.get('note', '')}</span>",
+        ]))
     mf_html = f"""
       <h2 style="font-size:16px;margin:18px 0 6px">🏦 Your mutual funds</h2>
       <div style="background:#fff;border-radius:8px;border:1px solid #e3e3e3;overflow:hidden">
-        <table style="width:100%;border-collapse:collapse;font-size:12px">
-          <tr style="background:#f7f7f7"><th style="text-align:left;padding:6px 8px">Fund</th><th style="text-align:left;padding:6px 8px">Value</th><th style="text-align:left;padding:6px 8px">P&L</th><th style="text-align:left;padding:6px 8px">1M</th><th style="text-align:left;padding:6px 8px">6M</th><th style="text-align:left;padding:6px 8px">1Y</th><th style="text-align:left;padding:6px 8px">Action</th></tr>
-          {mf_rows_html or "<tr><td colspan=7 style='padding:8px;color:#999'>No mutual fund holdings.</td></tr>"}
-        </table>
+        {"".join(mf_cards) or "<div style='padding:10px 12px;color:#999;font-size:12px'>No mutual fund holdings.</div>"}
       </div>
       <div style="font-size:10px;color:#888;margin-top:4px">Fund returns are point-to-point from AMFI NAVs. Funds are long-term holdings — judge them over years, not weeks.</div>"""
 
@@ -638,8 +655,10 @@ def build_email_html(rep: dict) -> str:
     dist = rep.get("distribution", {})
     sells_html = ", ".join(f"{p['symbol']} ({p['score']})" for p in rep.get("sells", [])) or "none"
 
-    return f"""<!doctype html><html><body style="margin:0;background:#f2f4f7;font-family:Segoe UI,Roboto,Arial,sans-serif;color:#222">
-    <div style="max-width:760px;margin:0 auto;padding:18px">
+    return f"""<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+    <body style="margin:0;background:#f2f4f7;font-family:Segoe UI,Roboto,Arial,sans-serif;color:#222;-webkit-text-size-adjust:100%">
+    <div style="max-width:760px;margin:0 auto;padding:14px">
       <div style="background:#0d1117;color:#fff;border-radius:10px;padding:16px 20px">
         <div style="font-size:20px;font-weight:800">MARKET<span style="color:#00d4aa">.</span>MONITOR — {('Pre-market plan' if rep['slot'] == '08:45' else 'Post-close review' if rep['slot'] == '15:45' else 'Scan report')}</div>
         <div style="font-size:12px;color:#aab">{rep['generated_label']} · Universe: {rep['universe_label']} ({rep['ok']}/{rep['scanned']} analysed)</div>
@@ -648,7 +667,7 @@ def build_email_html(rep: dict) -> str:
         <div style="font-size:15px;font-weight:800;color:{reg_col}">Market regime: {reg['label']} ({reg['score']}/100)</div>
         <div style="font-size:12px;margin-top:4px">{reg['desc']}</div>
         <ul style="font-size:12px;margin:6px 0 0 18px;padding:0">{''.join(f'<li>{p}</li>' for p in reg.get('points', []))}</ul>
-        <table style="margin-top:6px"><tr>{idx_cell('NIFTY50')}{idx_cell('BANKNIFTY')}{idx_cell('SENSEX')}{idx_cell('NIFTYMID')}{idx_cell('INDIAVIX')}</tr></table>
+        <table role="presentation" style="margin-top:6px;width:100%"><tr>{idx_cell('NIFTY50')}{idx_cell('BANKNIFTY')}{idx_cell('INDIAVIX')}</tr><tr>{idx_cell('SENSEX')}{idx_cell('NIFTYMID')}<td></td></tr></table>
         <div style="font-size:11px;color:#777;margin-top:4px">Scan distribution — Strong Buy {dist.get('Strong Buy',0)} · Buy {dist.get('Buy',0)} · Neutral {dist.get('Neutral',0)} · Sell {dist.get('Sell',0)} · Strong Sell {dist.get('Strong Sell',0)}</div>
       </div>
 
@@ -657,21 +676,13 @@ def build_email_html(rep: dict) -> str:
       {picks_html}
 
       <h2 style="font-size:16px;margin:18px 0 6px">👀 Watch-list (close to a trigger)</h2>
-      <div style="background:#fff;border-radius:8px;border:1px solid #e3e3e3;overflow:hidden">
-        <table style="width:100%;border-collapse:collapse;font-size:12px">
-          <tr style="background:#f7f7f7"><th style="text-align:left;padding:6px 8px">Symbol</th><th style="text-align:left;padding:6px 8px">Score</th><th style="text-align:left;padding:6px 8px">Verdict</th><th style="text-align:left;padding:6px 8px">Setup</th><th style="text-align:left;padding:6px 8px">Price</th><th style="text-align:left;padding:6px 8px">Stop</th><th style="text-align:left;padding:6px 8px">T1</th></tr>
-          {watch_html or "<tr><td colspan=7 style='padding:8px;color:#999'>Nothing close to a trigger.</td></tr>"}
-        </table>
-      </div>
+      {watch_html}
 
       {extra_html}
 
       <h2 style="font-size:16px;margin:18px 0 6px">💼 Your holdings — {port_sum}</h2>
       <div style="background:#fff;border-radius:8px;border:1px solid #e3e3e3;overflow:hidden">
-        <table style="width:100%;border-collapse:collapse;font-size:12px">
-          <tr style="background:#f7f7f7"><th style="text-align:left;padding:6px 8px">Symbol</th><th style="text-align:left;padding:6px 8px">LTP</th><th style="text-align:left;padding:6px 8px">P&L</th><th style="text-align:left;padding:6px 8px">Score</th><th style="text-align:left;padding:6px 8px">Action</th><th style="text-align:left;padding:6px 8px">Stop</th><th style="text-align:left;padding:6px 8px">Setup</th></tr>
-          {port_rows or "<tr><td colspan=7 style='padding:8px;color:#999'>No stock holdings.</td></tr>"}
-        </table>
+        {port_rows or "<div style='padding:10px 12px;color:#999;font-size:12px'>No stock holdings.</div>"}
       </div>
 
       {mf_html}
