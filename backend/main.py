@@ -362,12 +362,38 @@ async def get_holdings_raw():
         return json.load(f)
 
 
+def _sync_private(holdings_only: bool = True) -> dict:
+    """Push holdings (and optionally the code) to the PRIVATE GitHub repo. Never the public one."""
+    import subprocess
+    script = ROOT / "scripts" / "sync_private.py"
+    if not script.exists():
+        return {"ok": False, "error": "scripts/sync_private.py not found"}
+    cmd = [sys.executable, str(script)] + (["--holdings-only"] if holdings_only else [])
+    try:
+        r = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True, timeout=180,
+                           env={**os.environ, "GIT_TERMINAL_PROMPT": "0", "GCM_INTERACTIVE": "never"})
+        out = (r.stdout or "").strip().splitlines()
+        return {"ok": r.returncode == 0, "message": out[-1] if out else "", "error": (r.stderr or "").strip()[:300] or None}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.post("/api/sync/private")
+async def sync_private(body: dict | None = None):
+    """Manual 'Sync now' — pushes holdings (or everything with {'full': true}) to the private repo."""
+    full = bool((body or {}).get("full"))
+    return await asyncio.to_thread(_sync_private, not full)
+
+
 @app.post("/api/holdings/save")
 async def save_holdings(data: dict):
     data["last_updated"] = datetime.now().strftime("%Y-%m-%d")
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-    return {"ok": True, "stocks": len(data.get("stocks", [])), "mutual_funds": len(data.get("mutual_funds", []))}
+    out = {"ok": True, "stocks": len(data.get("stocks", [])), "mutual_funds": len(data.get("mutual_funds", []))}
+    if alerts.load_config().get("auto_sync_private"):
+        out["sync"] = await asyncio.to_thread(_sync_private, True)
+    return out
 
 
 # ── Morning briefing ──────────────────────────────────────────────────────

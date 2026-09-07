@@ -1366,11 +1366,13 @@ a{color:var(--accent)}
       <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="alEmail"> E-mail the report</label>
       <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="alWeekdays"> Weekdays only</label>
       <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="alPortfolio"> Include my holdings</label>
+      <label style="display:flex;align-items:center;gap:5px" title="After you save holdings, push them to your PRIVATE GitHub repo so the cloud scans use the current portfolio"><input type="checkbox" id="alAutoSync"> Auto-sync holdings to my private repo</label>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px">
       <button class="scan-btn" onclick="saveAlertConfig()">💾 Save</button>
       <button class="rbtn" onclick="testAlertEmail()" style="padding:6px 12px">Send test e-mail</button>
       <button class="rbtn" onclick="go('ideas');runIdeasScan()" style="padding:6px 12px">Run a scan now</button>
+      <button class="rbtn" onclick="syncPrivate()" style="padding:6px 12px" title="Push holdings to the private GitHub repo that runs the cloud scans">⬆ Sync holdings to private repo</button>
       <span id="alMsg" style="font-size:11px;color:var(--muted)"></span>
     </div>
     <div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.6">
@@ -3623,6 +3625,7 @@ async function loadAlertConfig() {
     set('alTo', c.email_to); set('alUser', c.smtp_user); set('alPass', c.smtp_pass); set('alHost', c.smtp_host); set('alPort', c.smtp_port);
     set('alTimes', (c.times || []).join(', ')); set('alMin', c.min_score); set('alCap', c.capital);
     set('alLowMax', c.low_price_max); set('alLowMin', c.low_price_min_score); chk('alOnStart', c.scan_on_start);
+    chk('alAutoSync', c.auto_sync_private);
     const u = document.getElementById('alUniverse'); if(u && [...u.options].some(o => o.value === c.universe)) u.value = c.universe;
     chk('alEnabled', c.enabled); chk('alEmail', c.email_enabled); chk('alWeekdays', c.weekdays_only); chk('alPortfolio', c.include_portfolio);
     try { if(c.capital) localStorage.setItem('mm_capital', String(c.capital)); } catch(_) {}
@@ -3636,6 +3639,7 @@ async function saveAlertConfig() {
     smtp_port: parseInt(g('alPort') || '587', 10), times: (g('alTimes') || '').split(',').map(s => s.trim()).filter(Boolean),
     scan_on_start: document.getElementById('alOnStart')?.checked,
     low_price_max: parseFloat(g('alLowMax') || '300'), low_price_min_score: parseInt(g('alLowMin') || '75', 10),
+    auto_sync_private: document.getElementById('alAutoSync')?.checked,
     universe: document.getElementById('alUniverse')?.value, min_score: parseInt(g('alMin') || '65', 10), capital: parseFloat(g('alCap') || '100000'),
     enabled: document.getElementById('alEnabled')?.checked, email_enabled: document.getElementById('alEmail')?.checked,
     weekdays_only: document.getElementById('alWeekdays')?.checked, include_portfolio: document.getElementById('alPortfolio')?.checked,
@@ -3646,6 +3650,15 @@ async function saveAlertConfig() {
     if(m) m.textContent = '✓ Saved' + (c.smtp_configured ? '' : ' — e-mail not fully configured yet');
     try { if(body.capital) localStorage.setItem('mm_capital', String(body.capital)); } catch(_) {}
     refreshIdeasSched();
+  } catch(e) { if(m) m.textContent = 'Error: ' + e.message; }
+}
+
+async function syncPrivate() {
+  const m = document.getElementById('alMsg');
+  if(m) m.textContent = 'Syncing holdings to the private repo…';
+  try {
+    const r = await fetch(`${API}/api/sync/private`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'}).then(r => r.json());
+    if(m) m.textContent = r.ok ? `✓ ${esc(r.message || 'synced')}` : `✗ ${esc(r.error || 'sync failed')}`;
   } catch(e) { if(m) m.textContent = 'Error: ' + e.message; }
 }
 

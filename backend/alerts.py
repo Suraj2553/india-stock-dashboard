@@ -55,6 +55,7 @@ DEFAULT_CONFIG = {
     "start_scan_gap_min": 120,
     "low_price_max": 300,           # "low-price picks" section: price <= this ...
     "low_price_min_score": 75,      # ... and score >= this
+    "auto_sync_private": False,     # after saving holdings, push them to the PRIVATE GitHub repo
 }
 
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -85,6 +86,17 @@ def load_config() -> dict:
     for k, v in env.items():
         if v and not cfg.get(k):
             cfg[k] = int(v) if k == "smtp_port" else v
+    # scan settings from the environment (used by GitHub Actions / headless runs)
+    for envk, key, cast in (("ALERT_UNIVERSE", "universe", str), ("ALERT_CAPITAL", "capital", float),
+                            ("ALERT_MIN_SCORE", "min_score", int), ("ALERT_MAX_PICKS", "max_picks", int),
+                            ("ALERT_LOW_PRICE_MAX", "low_price_max", float), ("ALERT_LOW_PRICE_MIN_SCORE", "low_price_min_score", int),
+                            ("ALERT_INCLUDE_PORTFOLIO", "include_portfolio", lambda s: s.strip().lower() in ("1", "true", "yes"))):
+        v = os.environ.get(envk)
+        if v:
+            try:
+                cfg[key] = cast(v)
+            except Exception:
+                pass
     try:
         cfg["smtp_port"] = int(cfg.get("smtp_port") or 587)
     except Exception:
@@ -823,11 +835,14 @@ async def run_cli(slot: str = "auto", universe: str | None = None, email: bool |
     now = datetime.now(IST)
     if slot == "auto":
         due = _due_slots(cfg, now)
-        if not due:
-            # nothing scheduled is pending — still run, label by the nearest slot
-            slot = min(cfg.get("times") or ["manual"], key=lambda t: abs(int(t[:2]) * 60 + int(t[3:]) - (now.hour * 60 + now.minute)))
-        else:
+        times = [t for t in (cfg.get("times") or []) if isinstance(t, str) and ":" in t]
+        if due:
             slot = sorted(due)[-1]
+        elif times:
+            # nothing scheduled is pending — still run, label by the nearest slot
+            slot = min(times, key=lambda t: abs(int(t[:2]) * 60 + int(t[3:]) - (now.hour * 60 + now.minute)))
+        else:
+            slot = "manual"
     rep = await run_scan(universe=universe, send_email=email, slot=slot)
     if "error" not in rep:
         state = _load_state()

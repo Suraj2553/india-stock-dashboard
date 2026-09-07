@@ -42,6 +42,7 @@ def main():
     ap.add_argument("--universe", default=None)
     ap.add_argument("--no-email", action="store_true")
     ap.add_argument("--email", action="store_true")
+    ap.add_argument("--quiet", action="store_true", help="print only counts (safe for public CI logs: no symbols, no e-mail address)")
     a = ap.parse_args()
     email = None
     if a.no_email:
@@ -55,6 +56,12 @@ def main():
         print("SCAN FAILED:", rep["error"])
         sys.exit(1)
     reg = rep["market"]["regime"]
+    if a.quiet:
+        em = rep.get("email", {})
+        print(f"{rep['generated_label']} | {rep['universe_label']} | {rep['ok']}/{rep['scanned']} analysed | regime {reg['label']} {reg['score']}/100 | "
+              f"{len(rep.get('top_buys', []))} buys, {len(rep.get('low_price_picks', []))} low-price, {len(rep.get('consensus', []))} consensus | "
+              f"e-mail: {'sent' if em.get('sent') else (em.get('error') or 'not requested')}")
+        return
     print(f"{rep['generated_label']} | {rep['universe_label']} | regime {reg['label']} {reg['score']}/100")
     for i, p in enumerate(rep.get("top_buys", []), 1):
         tp = p.get("trade_plan") or {}

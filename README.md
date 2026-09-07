@@ -78,11 +78,20 @@ Windows: `start.bat` · Mac/Linux: `bash start.sh` → open **http://localhost:8
 3. By default a scan also runs **every time the dashboard starts** (skipped if one ran in the last 2 hours) — leave the times blank if that is all you want. Each report contains the ranked buys, a **consensus** list (engine ≥ 70 *and* TradingView Strong Buy), **low-price picks** (price ≤ ₹300 and score ≥ 75, both adjustable) and the **highest scores overall**.
 4. While the dashboard is running, the scheduler checks every minute. **If the laptop was off at a scheduled time, the scan runs as soon as the dashboard is next started** (catch-up), so you still get your two reports on late-boot days. Results also appear instantly in the **Buy Ideas** tab.
 
-To run **without** the dashboard open, register Windows Task Scheduler jobs (they also catch up after a late boot):
+### Running when you are not at the laptop
+
+**Laptop asleep (fully local):** register Windows Task Scheduler jobs — they wake the PC from sleep at 08:45 / 15:45, scan, e-mail, and catch up after a late boot (allow wake timers in the Windows power settings):
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install_scheduler.ps1
 ```
-Remove with `scripts\uninstall_scheduler.ps1`. Manual run: `python scripts\daily_scan.py` (`--universe nifty50`, `--no-email`).
+Remove with `scripts\uninstall_scheduler.ps1`. Manual run: `python scripts\daily_scan.py` (`--universe nifty50`, `--no-email`, `--quiet`). On a Mac/Linux use cron: `45 8,15 * * 1-5 cd /path/to/repo && .venv/bin/python3 scripts/daily_scan.py`.
+
+**Laptop off (GitHub Actions, free):** `.github/workflows/scan.yml` runs the scan on GitHub's servers at 08:45 and 15:45 IST on weekdays and e-mails it. Your e-mail settings and (optionally) holdings live only in the repository's **encrypted Actions secrets**, never in the code. Upload them from your local config with:
+```powershell
+pip install pynacl
+python scripts\setup_github_actions.py          # add --no-holdings to keep holdings off GitHub entirely
+```
+Then test with *Actions → Market scan + e-mail → Run workflow*. The job prints only counts, so nothing personal appears in logs; making the repository private is still the safest choice.
 
 Each e-mail contains: market regime (Nifty technical score, breadth, VIX), the ranked buys with entry / stop-loss / Target 1 / Target 2 / reward-to-risk / projected profit on your capital / the stock's own historical hit-rate for similar days, a watch-list of names near a trigger, and an action for every holding (Add / Hold / Tighten stop / Trim / Exit).
 

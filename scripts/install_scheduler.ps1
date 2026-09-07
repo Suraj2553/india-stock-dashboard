@@ -15,10 +15,11 @@ $script = Join-Path $root "scripts\daily_scan.py"
 
 $times = @("08:45", "15:45")
 foreach ($t in $times) {
-    $name    = "MarketMonitor Scan $t"
+    $name    = "MarketMonitor Scan " + ($t -replace ":", "")   # Task Scheduler names cannot contain ":"
     $action  = New-ScheduledTaskAction -Execute $python -Argument "`"$script`" --slot $t" -WorkingDirectory $root
     $trigger = New-ScheduledTaskTrigger -Daily -At $t
-    $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+    # -WakeToRun: wake the laptop from sleep for the scan (works when asleep / lid closed on power; not when shut down)
+    $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -WakeToRun `
                 -ExecutionTimeLimit (New-TimeSpan -Minutes 30) -MultipleInstances IgnoreNew
     try { Unregister-ScheduledTask -TaskName $name -Confirm:$false -ErrorAction SilentlyContinue } catch {}
     Register-ScheduledTask -TaskName $name -Action $action -Trigger $trigger -Settings $settings `
@@ -26,6 +27,7 @@ foreach ($t in $times) {
     Write-Host "[OK] Registered task '$name' -> $python $script --slot $t"
 }
 Write-Host ""
-Write-Host "Done. Tasks run daily at $($times -join ' and ') (local time) and catch up after a late boot."
+Write-Host "Done. Tasks run daily at $($times -join ' and ') (local time), wake the PC from sleep, and catch up after a late boot."
+Write-Host "Tip: Settings > System > Power: allow wake timers (Advanced power settings > Sleep > Allow wake timers = Enable)."
 Write-Host "Configure SMTP + recipient in the dashboard (Settings -> E-mail alerts) or in .env first."
 Write-Host "Remove with: scripts\uninstall_scheduler.ps1"
