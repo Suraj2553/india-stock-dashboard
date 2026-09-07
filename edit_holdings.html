@@ -197,6 +197,7 @@ a{color:var(--accent)}
 <!-- Save bar -->
 <div class="save-bar" style="position:fixed;bottom:0;left:0;right:0;z-index:100;margin:0;border-radius:0;padding:12px 24px">
   <button class="btn btn-primary" onclick="saveAll()">💾 Save All Changes</button>
+  <button class="btn btn-secondary" onclick="syncPrivate()" title="Push these holdings to your private GitHub repo, which runs the scheduled scans while your laptop is off">⬆ Sync to private repo</button>
   <span class="save-status" id="saveStatus">Load the dashboard first, then changes will save here.</span>
 </div>
 
@@ -440,12 +441,33 @@ async function saveAll() {
       body: JSON.stringify(holdings),
     });
     if (!r.ok) throw new Error(await r.text());
-    showToast('✓ Saved! Refresh the dashboard to see changes.');
-    document.getElementById('saveStatus').textContent = `Last saved: ${new Date().toLocaleTimeString('en-IN')}`;
+    const d = await r.json().catch(() => ({}));
+    // The backend auto-syncs to the private repo when that setting is on — report the outcome here.
+    const sync = d.sync
+      ? (d.sync.ok ? ' · synced to private repo' : ' · private-repo sync FAILED: ' + (d.sync.error || ''))
+      : '';
+    showToast('✓ Saved!' + (d.sync && d.sync.ok ? ' Private repo updated.' : ' Refresh the dashboard to see changes.'), !!(d.sync && !d.sync.ok));
+    document.getElementById('saveStatus').textContent = `Last saved: ${new Date().toLocaleTimeString('en-IN')}${sync}`;
   } catch(e) {
     showToast('Save failed: ' + e.message, true);
   }
   btn.textContent = '💾 Save All Changes'; btn.disabled = false;
+}
+
+// ── Sync holdings to the PRIVATE repo (the one that runs the scheduled cloud scans) ──
+async function syncPrivate() {
+  const el = document.getElementById('saveStatus');
+  el.textContent = 'Syncing to private repo…';
+  try {
+    const r = await fetch(`${API}/api/sync/private`, {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}',
+    }).then(r => r.json());
+    el.textContent = r.ok ? `✓ ${r.message || 'synced to private repo'}` : `✗ ${r.error || 'sync failed'}`;
+    showToast(r.ok ? '✓ Private repo updated — cloud scans will use these holdings.' : 'Sync failed: ' + (r.error || ''), !r.ok);
+  } catch(e) {
+    el.textContent = 'Sync error: ' + e.message;
+    showToast('Sync error: ' + e.message, true);
+  }
 }
 
 function saveRaw() {
