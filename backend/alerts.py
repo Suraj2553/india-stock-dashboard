@@ -272,6 +272,70 @@ async def _mf_rows(portfolio: dict) -> list:
     return list(await asyncio.gather(*[one(m) for m in funds]))
 
 
+def reality_flags(p: dict, regime_label: str = "") -> list:
+    """Contradictions the reader should see BEFORE acting on a high score.
+
+    A score of 85 means 'the indicators line up', not '85% chance of profit'. Where the
+    stock's own history, its position in the range, or the market regime disagree with the
+    score, say so plainly instead of leaving the reader to spot it.
+    """
+    flags = []
+    fc = p.get("forecast") or {}
+    score = p.get("score") or 0
+    hit = fc.get("hit_rate_pct")
+    edge = fc.get("score_edge_pct")
+    horizon = fc.get("horizon_days", 21)
+
+    if hit is not None and score >= 70 and hit < 50:
+        flags.append(f"⚠ Score and history disagree: only <b>{hit:.0f}%</b> of this stock's similar-scoring days "
+                     f"were higher {horizon} sessions later. The score measures indicator alignment, not odds.")
+    elif hit is not None and hit >= 65 and score >= 70:
+        flags.append(f"✔ History agrees: {hit:.0f}% of similar-scoring days ended higher after {horizon} sessions.")
+
+    if edge is not None and edge <= -3:
+        flags.append(f"⚠ High-scoring days have historically done <b>{abs(edge):.1f}% worse</b> than an ordinary day "
+                     f"for this stock — a sign the move is usually already spent by the time it looks this good.")
+
+    pos = p.get("position_52w")
+    dist = p.get("dist_to_52w_high_pct")
+    if pos is not None and pos >= 95:
+        flags.append("⚠ Sitting at its 52-week high — you would be paying the top of the move. "
+                     "A pullback entry costs less and risks less.")
+    elif dist is not None and dist <= 3 and (p.get("momentum") or {}).get("ret_1m", 0) > 20:
+        flags.append("⚠ Up sharply in a month and near its high — extended; wait for it to pause.")
+
+    rsi = p.get("rsi")
+    if rsi and rsi >= 72:
+        flags.append(f"⚠ RSI {rsi} — overbought. Fine inside a strong trend, but not a low-risk entry.")
+
+    risk = p.get("risk") or {}
+    if (risk.get("annual_volatility_pct") or 0) >= 45:
+        flags.append(f"⚠ Volatile: {risk['annual_volatility_pct']:.0f}% annualised, "
+                     f"about {risk.get('avg_daily_move_pct', 0):.1f}% a day. Size smaller than usual.")
+
+    if regime_label.startswith(("BEAR", "NEUTRAL")):
+        flags.append(f"⚠ Market regime is {regime_label} — breakouts fail more often when the index is weak.")
+
+    return flags[:3]
+
+
+HOW_TO_READ = """
+      <div style="background:#fff8e1;border:1px solid #f0d78c;border-radius:8px;padding:12px 14px;margin-top:16px">
+        <div style="font-size:14px;font-weight:800;margin-bottom:6px">How to read this report</div>
+        <div style="font-size:12px;line-height:1.7;color:#333">
+          <b>The score is not a probability.</b> 85/100 means "the indicators line up", not "85% chance of making money".
+          It is a technical alignment score, and it knows nothing about earnings, debt, promoter actions or news.<br>
+          <b>The hit rate is the closest thing to odds.</b> It is measured on this stock's own past year: how often days that
+          scored like today were higher after 21 sessions. A high score with a low hit rate means "interesting — investigate",
+          not "buy". Where the two disagree, the report now says so under the idea.<br>
+          <b>The stop is the plan.</b> Every idea is sized so that being wrong costs about 1% of your capital. An idea without a
+          stop order placed is not a trade, it is a hope.<br>
+          <b>Nothing here is investment advice.</b> Check the company's fundamentals and recent news before acting, and never
+          size a speculative name as if it were a blue chip.
+        </div>
+      </div>"""
+
+
 def _regime(overview: dict, nifty_pred: dict | None, movers: dict | None) -> dict:
     n = overview.get("NIFTY50", {})
     vix = overview.get("INDIAVIX", {}).get("price")
@@ -532,6 +596,11 @@ def build_email_html(rep: dict) -> str:
         loss = cap * (tp.get("stop_pct") or 0) / 100
         reasons = "".join(f"<li style='margin:2px 0'>{r}</li>" for r in p.get("reasons", [])[:4])
         risks = "".join(f"<li style='margin:2px 0;color:#a33'>{r}</li>" for r in p.get("risks", [])[:2])
+        rf = reality_flags(p, reg["label"])
+        reality = ("<div style='background:#fbf3f3;border-left:3px solid #c0392b;border-radius:4px;padding:8px 10px;margin-top:8px'>"
+                   "<div style='font-size:11px;font-weight:700;color:#8a2b2b;margin-bottom:3px'>REALITY CHECK</div>"
+                   + "".join(f"<div style='font-size:12px;color:#333;line-height:1.5;margin-top:2px'>{f}</div>" for f in rf)
+                   + "</div>") if rf else ""
         fc_line = (f"Model (this stock's last year): <b>{_pct(fc.get('expected_return_pct'))}</b> avg in {fc.get('horizon_days')} sessions, "
                    f"hit-rate <b>{fc.get('hit_rate_pct', 0):.0f}%</b> over {fc.get('samples')} similar days"
                    if fc else "Model forecast: not enough history")
@@ -565,6 +634,7 @@ def build_email_html(rep: dict) -> str:
           </div>
           <div style="font-size:12px;margin-top:4px;color:#555">{fc_line}</div>
           <ul style="font-size:12px;margin:8px 0 0 18px;padding:0">{reasons}{risks}</ul>
+          {reality}
         </div>"""
 
     picks_html = "".join(pick_block(p, i + 1) for i, p in enumerate(rep.get("top_buys", []))) or \
@@ -592,6 +662,8 @@ def build_email_html(rep: dict) -> str:
             left = f"{p['symbol']} <span style='font-weight:400;color:#666;font-size:12px'>{_fmt(p['price'])}</span>"
             right = _badge(f"{p['verdict']} · {p['score']}", "#fff", score_col)
             tv_txt = f" &nbsp;·&nbsp; TradingView: <b>{t['rating_label']}</b>" if t.get("rating_label") else ""
+            rf = reality_flags(p, reg["label"])
+            warn = rf[0] if rf and rf[0].startswith("⚠") else ""
             lines = [
                 f"<b>{p['setup']}</b>{tv_txt}",
                 f"Stop <b style='color:#c0392b'>{_fmt(tp.get('stop'))} ({_pct(tp.get('stop_pct'))})</b>"
@@ -599,6 +671,7 @@ def build_email_html(rep: dict) -> str:
                 f" &nbsp;·&nbsp; T2 {_fmt(tp.get('target2'))}",
                 (f"<span style='color:#666;font-size:11px'>Model {fc.get('horizon_days', 21)}d: "
                  f"{_pct(fc.get('expected_return_pct'))} avg · hit {fc.get('hit_rate_pct', 0):.0f}% over {fc.get('samples')} similar days</span>") if fc else "",
+                (f"<span style='color:#8a2b2b;font-size:11px'>{warn}</span>") if warn else "",
             ]
             cards.append(_card(left, right, lines))
         body = "".join(cards) or f"<div style='padding:10px 12px;color:#999;font-size:12px'>{empty_msg}</div>"
@@ -688,6 +761,7 @@ def build_email_html(rep: dict) -> str:
       {mf_html}
 
       <div style="font-size:12px;margin-top:14px;color:#555"><b>Weakest in scan (avoid / short-bias):</b> {sells_html}</div>
+      {HOW_TO_READ}
       <div style="font-size:10px;color:#888;margin-top:16px;line-height:1.5">
         Generated automatically from Yahoo Finance daily data by your local Market Monitor. Technical signals are probabilities, not promises —
         the "model" numbers are this stock's own historical outcomes on days that scored similarly and can be wrong. Not investment advice;
