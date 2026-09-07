@@ -728,7 +728,7 @@ a{color:var(--accent)}
   <div id="ideasExtra"></div>
   <div class="two gap">
     <div class="card"><div class="ct">👀 Watch-list — close to a trigger</div><div id="ideasWatch"></div></div>
-    <div class="card"><div class="ct">💼 Your holdings — action plan</div><div id="ideasPortfolio"></div></div>
+    <div class="card"><div class="ct">💼 Your holdings — action plan</div><div id="ideasPortfolio"></div><div id="ideasMF" style="margin-top:12px"></div></div>
   </div>
   <div class="card gap">
     <div class="row"><div class="ct" style="margin:0">📜 Scan history</div><span id="ideasSched" style="font-size:10px;color:var(--muted)"></span></div>
@@ -3566,6 +3566,18 @@ function renderIdeas(rep) {
     const acol = /Add|^Hold$/.test(h.action) ? 'var(--accent)' : /tighten/.test(h.action) ? 'var(--yellow)' : '#ff4d6d';
     return `<tr onclick="showStockPopup('${esc(h.symbol)}')"><td><b style="color:#fff">${esc(h.symbol)}</b><br><span style="font-size:10px;color:var(--muted)">₹${h.current_price ?? h.price}</span></td><td class="${pc(h.pnl_pct || 0)}">${fp(h.pnl_pct || 0)}</td><td><span class="sig-badge ${verdictBadgeClass(h.verdict)}">${h.score}</span></td><td style="color:${acol};font-weight:700">${esc(h.action)}</td><td style="color:#ff4d6d">₹${tp.stop ?? '—'}</td></tr>`;
   }).join('')}</tbody></table>` : `<div style="font-size:11px;color:var(--muted)">No stock holdings in the report.</div>`;
+  const mfEl = document.getElementById('ideasMF');
+  if(mfEl) {
+    const mfs = rep.mutual_funds || [];
+    mfEl.innerHTML = mfs.length ? `<div class="ct" style="margin-bottom:8px">🏦 Mutual funds</div>
+      <table class="tbl"><thead><tr><th>Fund</th><th>Value</th><th>P&L</th><th>1M</th><th>6M</th><th>1Y</th><th>Action</th></tr></thead><tbody>${mfs.map(m => {
+        const rc = v => `<td class="${pc(v || 0)}">${v != null ? fp(v) : '—'}</td>`;
+        const acol = (m.action || '').startsWith('Hold') ? 'var(--accent)' : '#ff4d6d';
+        return `<tr><td style="max-width:190px"><span style="color:var(--white);font-size:11px">${esc((m.name || '').substring(0, 40))}</span><br><span style="font-size:9px;color:var(--muted)">${esc(m.category || '')}</span></td>
+          <td>${fi(m.current_value || 0)}</td><td class="${pc(m.pnl || 0)}">${fp(m.pnl_pct || 0)}</td>${rc(m.ret_1m)}${rc(m.ret_6m)}${rc(m.ret_1y)}
+          <td style="color:${acol};font-weight:700">${esc(m.action || '')}<br><span style="font-size:9px;color:var(--muted);font-weight:400">${esc(m.note || '')}</span></td></tr>`;
+      }).join('')}</tbody></table>` : '';
+  }
 }
 
 function renderDashIdeas(rep) {

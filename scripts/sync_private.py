@@ -32,6 +32,29 @@ SKIP_FILES = {".env", "llm_config.json", "alerts_config.json", ".mcp.json", "pus
               "package.json", "package-lock.json", ".DS_Store", "Thumbs.db"}
 SKIP_EXTS = {".pyc", ".pyo", ".zip", ".log"}
 
+# The public .gitignore deliberately excludes data/holdings.json — but the private repo NEEDS it,
+# otherwise the cloud scan silently falls back to the sample portfolio. So the private copy gets
+# its own .gitignore that hides only credentials and build junk.
+PRIVATE_GITIGNORE = """# Private repo — holdings ARE tracked here on purpose (the scheduled scan reads them).
+# Credentials never are: they live in this repo's encrypted Actions secrets.
+.env
+data/llm_config.json
+data/alerts_config.json
+.mcp.json
+.venv/
+venv/
+tools/node22/
+tools/node_modules/
+tools/package.json
+tools/package-lock.json
+__pycache__/
+*.pyc
+*.log
+.claude/
+.DS_Store
+Thumbs.db
+"""
+
 
 def copy_project(dest: Path):
     for root, dirs, files in os.walk(ROOT):
@@ -85,10 +108,16 @@ def main():
             shutil.copy2(holdings, work / "data" / "holdings.json")
         else:
             for item in work.iterdir():
-                if item.name == ".git":
+                if item.name in (".git", "data"):
                     continue
                 shutil.rmtree(item) if item.is_dir() else item.unlink()
+            # keep the archived scan reports the workflow committed
+            for item in (work / "data").iterdir() if (work / "data").exists() else []:
+                if item.name != "scans":
+                    shutil.rmtree(item) if item.is_dir() else item.unlink()
             copy_project(work)
+        # private-repo .gitignore so holdings are actually tracked
+        (work / ".gitignore").write_text(PRIVATE_GITIGNORE, encoding="utf-8")
 
         files = sorted(str(p.relative_to(work)).replace("\\", "/") for p in work.rglob("*")
                        if p.is_file() and ".git/" not in str(p.relative_to(work)).replace("\\", "/"))
@@ -103,6 +132,10 @@ def main():
             return
 
         git("add", "-A", cwd=work, env=env)
+        git("add", "-f", "data/holdings.json", cwd=work, env=env)      # belt and braces
+        tracked = git("ls-files", "data/holdings.json", cwd=work, env=env).stdout.strip()
+        if not tracked:
+            sys.exit("ERROR: data/holdings.json is not being tracked — the cloud scan would use the sample portfolio.")
         if not git("status", "--porcelain", cwd=work, env=env).stdout.strip():
             print("already up to date — nothing to sync")
             return

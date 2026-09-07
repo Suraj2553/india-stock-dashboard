@@ -219,6 +219,59 @@ def _holding_action(p: dict, holding: dict) -> str:
     return "Exit on bounce"
 
 
+async def _mf_rows(portfolio: dict) -> list:
+    """Enrich mutual-fund holdings with point-to-point returns from AMFI and a plain-language action.
+    Funds are long-term instruments — they get a review, never a trading signal."""
+    import httpx
+    funds = portfolio.get("mutual_funds", [])
+    if not funds:
+        return []
+
+    async def one(mf):
+        row = {"name": mf.get("name"), "scheme_code": mf.get("scheme_code"), "units": mf.get("units"),
+               "avg_nav": mf.get("avg_nav"), "current_nav": mf.get("current_nav"), "nav_date": mf.get("nav_date"),
+               "invested": mf.get("invested"), "current_value": mf.get("current_value"),
+               "pnl": mf.get("pnl"), "pnl_pct": mf.get("pnl_pct")}
+        try:
+            async with httpx.AsyncClient(timeout=12) as cl:
+                r = await cl.get(f"https://api.mfapi.in/mf/{mf['scheme_code']}")
+            data = r.json()
+            navs = data.get("data", [])
+            row["category"] = (data.get("meta") or {}).get("scheme_category")
+            latest = float(navs[0]["nav"])
+
+            def ret(n):
+                if len(navs) > n:
+                    old = float(navs[n]["nav"])
+                    return round((latest - old) / old * 100, 2) if old else None
+                return None
+            row.update({"ret_1m": ret(21), "ret_3m": ret(63), "ret_6m": ret(126), "ret_1y": ret(248), "ret_3y": ret(744)})
+        except Exception as e:
+            row["error"] = str(e)[:80]
+        y, h, q = row.get("ret_1y"), row.get("ret_6m"), row.get("ret_3m")
+        if y is None:
+            row["action"] = "Hold"
+            row["note"] = "Return history unavailable"
+        elif y >= 12 and (h or 0) >= 0:
+            row["action"] = "Hold / keep SIP"
+            row["note"] = "Compounding well — do nothing"
+        elif y >= 0 and (h or 0) < 0:
+            row["action"] = "Hold"
+            row["note"] = "Positive over a year, soft patch recently — normal"
+        elif y >= 0:
+            row["action"] = "Hold"
+            row["note"] = "Modest but positive"
+        elif (q or 0) > 0:
+            row["action"] = "Hold · watch"
+            row["note"] = "Down over a year but recovering"
+        else:
+            row["action"] = "Review"
+            row["note"] = "Negative over 1 year and still falling — compare with its category"
+        return row
+
+    return list(await asyncio.gather(*[one(m) for m in funds]))
+
+
 def _regime(overview: dict, nifty_pred: dict | None, movers: dict | None) -> dict:
     n = overview.get("NIFTY50", {})
     vix = overview.get("INDIAVIX", {}).get("price")
@@ -307,7 +360,7 @@ async def run_scan(universe: str | None = None, send_email: bool | None = None,
             watch = [_lite(deep[s]) for s in deep if _lite(deep[s]) not in top_buys and deep[s]["score"] >= 55][:8]
 
             # holdings
-            portfolio_rows, port_summary = [], {}
+            portfolio_rows, port_summary, mf_rows = [], {}, []
             if cfg.get("include_portfolio", True):
                 STATUS["stage"] = "analysing your holdings"
                 try:
@@ -321,6 +374,8 @@ async def run_scan(universe: str | None = None, send_email: bool | None = None,
                                    "current_value": h.get("current_value"),
                                    "action": _holding_action(p, h) if "error" not in p else "—"})
                         portfolio_rows.append(lp)
+                    STATUS["stage"] = "analysing your mutual funds"
+                    mf_rows = await _mf_rows(port)
                 except Exception as e:
                     STATUS["last_error"] = f"portfolio: {e}"
 
@@ -361,7 +416,7 @@ async def run_scan(universe: str | None = None, send_email: bool | None = None,
                 "top_buys": top_buys, "watchlist": watch, "sells": sells,
                 "low_price_picks": low_price, "low_price_rule": {"max_price": lp_max, "min_score": lp_min},
                 "top_scores": top_scores, "consensus": consensus[:8],
-                "portfolio": portfolio_rows, "portfolio_summary": port_summary,
+                "portfolio": portfolio_rows, "portfolio_summary": port_summary, "mutual_funds": mf_rows,
                 "all": [_lite(r) for r in ok],
                 "distribution": {v: sum(1 for r in ok if r["verdict"] == v)
                                  for v in ("Strong Buy", "Buy", "Neutral", "Sell", "Strong Sell")},
@@ -554,6 +609,29 @@ def build_email_html(rep: dict) -> str:
         port_rows += (f"<tr><td style='padding:5px 8px;font-weight:700'>{h['symbol']}</td><td style='padding:5px 8px'>{_fmt(h.get('current_price'))}</td>"
                       f"<td style='padding:5px 8px;color:{col}'>{_pct(h.get('pnl_pct'))}</td><td style='padding:5px 8px'>{h['score']} · {h['verdict']}</td>"
                       f"<td style='padding:5px 8px;color:{acol};font-weight:700'>{h['action']}</td><td style='padding:5px 8px'>{_fmt(tp.get('stop'))}</td><td style='padding:5px 8px'>{h['setup']}</td></tr>")
+    # mutual funds
+    mf_rows_html = ""
+    for m in rep.get("mutual_funds", []) or []:
+        col = "#0a8f6a" if (m.get("pnl_pct") or 0) >= 0 else "#c0392b"
+        acol = "#0a8f6a" if m.get("action", "").startswith("Hold") else "#c0392b"
+        rcell = lambda v: (f"<td style='padding:5px 8px;color:{'#0a8f6a' if (v or 0) >= 0 else '#c0392b'}'>{_pct(v)}</td>")
+        mf_rows_html += (f"<tr><td style='padding:5px 8px'><b>{m.get('name', '')[:44]}</b>"
+                         f"<div style='font-size:10px;color:#777'>{m.get('category') or ''}</div></td>"
+                         f"<td style='padding:5px 8px'>{_fmt(m.get('current_value'), nd=0)}</td>"
+                         f"<td style='padding:5px 8px;color:{col}'>{_fmt(m.get('pnl'), nd=0)} ({_pct(m.get('pnl_pct'))})</td>"
+                         + rcell(m.get("ret_1m")) + rcell(m.get("ret_6m")) + rcell(m.get("ret_1y")) +
+                         f"<td style='padding:5px 8px;color:{acol};font-weight:700'>{m.get('action', '')}"
+                         f"<div style='font-size:10px;color:#777;font-weight:400'>{m.get('note', '')}</div></td></tr>")
+    mf_html = f"""
+      <h2 style="font-size:16px;margin:18px 0 6px">🏦 Your mutual funds</h2>
+      <div style="background:#fff;border-radius:8px;border:1px solid #e3e3e3;overflow:hidden">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <tr style="background:#f7f7f7"><th style="text-align:left;padding:6px 8px">Fund</th><th style="text-align:left;padding:6px 8px">Value</th><th style="text-align:left;padding:6px 8px">P&L</th><th style="text-align:left;padding:6px 8px">1M</th><th style="text-align:left;padding:6px 8px">6M</th><th style="text-align:left;padding:6px 8px">1Y</th><th style="text-align:left;padding:6px 8px">Action</th></tr>
+          {mf_rows_html or "<tr><td colspan=7 style='padding:8px;color:#999'>No mutual fund holdings.</td></tr>"}
+        </table>
+      </div>
+      <div style="font-size:10px;color:#888;margin-top:4px">Fund returns are point-to-point from AMFI NAVs. Funds are long-term holdings — judge them over years, not weeks.</div>"""
+
     ps = rep.get("portfolio_summary") or {}
     port_sum = (f"Portfolio {_fmt(ps.get('total_current'), nd=0)} · P&L <b style='color:{'#0a8f6a' if (ps.get('pnl') or 0) >= 0 else '#c0392b'}'>{_fmt(ps.get('pnl'), nd=0)} ({_pct(ps.get('pnl_pct'))})</b>"
                 if ps else "")
@@ -596,6 +674,8 @@ def build_email_html(rep: dict) -> str:
         </table>
       </div>
 
+      {mf_html}
+
       <div style="font-size:12px;margin-top:14px;color:#555"><b>Weakest in scan (avoid / short-bias):</b> {sells_html}</div>
       <div style="font-size:10px;color:#888;margin-top:16px;line-height:1.5">
         Generated automatically from Yahoo Finance daily data by your local Market Monitor. Technical signals are probabilities, not promises —
@@ -624,6 +704,11 @@ def build_email_text(rep: dict) -> str:
     lines += ["", "HOLDINGS"]
     for h in rep.get("portfolio", []):
         lines.append(f"- {h['symbol']}: {h.get('score')} {h.get('verdict')} → {h.get('action')}")
+    lines += ["", "MUTUAL FUNDS"]
+    for m in rep.get("mutual_funds", []) or []:
+        lines.append(f"- {m.get('name', '')[:40]}: {m.get('pnl_pct')}% P&L | 1Y {m.get('ret_1y')}% → {m.get('action')}")
+    if not rep.get("mutual_funds"):
+        lines.append("- none")
     return "\n".join(lines)
 
 
