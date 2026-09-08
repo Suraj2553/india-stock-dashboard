@@ -197,7 +197,7 @@ a{color:var(--accent)}
 <!-- Save bar -->
 <div class="save-bar" style="position:fixed;bottom:0;left:0;right:0;z-index:100;margin:0;border-radius:0;padding:12px 24px">
   <button class="btn btn-primary" onclick="saveAll()">💾 Save All Changes</button>
-  <button class="btn btn-secondary" onclick="syncPrivate()" title="Push these holdings to your private GitHub repo, which runs the scheduled scans while your laptop is off">⬆ Sync to private repo</button>
+  <button class="btn btn-secondary" id="syncPrivateBtn" style="display:none" onclick="syncPrivate()" title="Push these holdings to your private GitHub repo, which runs the scheduled scans while your laptop is off">⬆ Sync to private repo</button>
   <span class="save-status" id="saveStatus">Load the dashboard first, then changes will save here.</span>
 </div>
 
@@ -455,6 +455,17 @@ async function saveAll() {
 }
 
 // ── Sync holdings to the PRIVATE repo (the one that runs the scheduled cloud scans) ──
+// Optional feature: only shown when "private_repo" is configured, so a fresh clone of the
+// public project never sees a button that cannot work.
+async function initPrivateSync() {
+  try {
+    const c = await fetch(`${API}/api/alerts/config`).then(r => r.json());
+    const btn = document.getElementById('syncPrivateBtn');
+    if (btn && c.private_sync_available) btn.style.display = '';
+  } catch(_) {}
+}
+initPrivateSync();
+
 async function syncPrivate() {
   const el = document.getElementById('saveStatus');
   el.textContent = 'Syncing to private repo…';

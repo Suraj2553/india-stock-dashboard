@@ -24,8 +24,19 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-# Your own private repo. Override with the MM_PRIVATE_REPO environment variable or --repo.
-PRIVATE_REPO = os.environ.get("MM_PRIVATE_REPO", "https://github.com/Suraj2553/market-monitor-private.git")
+def private_repo_url() -> str:
+    """--repo > MM_PRIVATE_REPO env > 'private_repo' in data/alerts_config.json. Never a default:
+    this must be YOUR repo, so a fresh clone of the public project simply has the feature off."""
+    url = os.environ.get("MM_PRIVATE_REPO", "").strip()
+    if url:
+        return url
+    cfg = ROOT / "data" / "alerts_config.json"
+    if cfg.exists():
+        try:
+            return (json.loads(cfg.read_text(encoding="utf-8")).get("private_repo") or "").strip()
+        except Exception:
+            pass
+    return ""
 
 SKIP_DIRS = {"__pycache__", ".claude", ".git", ".venv", "venv", "scans", "node22", "node_modules"}
 SKIP_FILES = {".env", "llm_config.json", "alerts_config.json", ".mcp.json", "push_to_github.py",
@@ -78,13 +89,18 @@ def git(*args, cwd, env=None, check=True):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--repo", default=PRIVATE_REPO)
+    ap.add_argument("--repo", default=None)
     ap.add_argument("--message", default=None)
     ap.add_argument("--branch", default="main")
     ap.add_argument("--holdings-only", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
 
+    a.repo = a.repo or private_repo_url()
+    if not a.repo:
+        sys.exit("No private repo configured. This feature is optional: set \"private_repo\" in "
+                 "data/alerts_config.json (or the MM_PRIVATE_REPO environment variable) to your own "
+                 "private GitHub repository, e.g. https://github.com/<you>/market-monitor-private.git")
     holdings = ROOT / "data" / "holdings.json"
     if not holdings.exists():
         sys.exit("data/holdings.json not found.")

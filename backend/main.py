@@ -368,6 +368,10 @@ def _sync_private(holdings_only: bool = True) -> dict:
     script = ROOT / "scripts" / "sync_private.py"
     if not script.exists():
         return {"ok": False, "error": "scripts/sync_private.py not found"}
+    if not alerts.public_config().get("private_sync_available"):
+        return {"ok": False, "unavailable": True,
+                "error": "No private repo configured — set \"private_repo\" in data/alerts_config.json "
+                         "to your own private GitHub repo to enable cloud scans."}
     cmd = [sys.executable, str(script)] + (["--holdings-only"] if holdings_only else [])
     try:
         r = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True, timeout=180,

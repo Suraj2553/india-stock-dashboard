@@ -42,6 +42,8 @@ def main():
     ap.add_argument("--universe", default=None)
     ap.add_argument("--no-email", action="store_true")
     ap.add_argument("--email", action="store_true")
+    ap.add_argument("--skip-if-done", action="store_true",
+                    help="exit quietly if this slot already ran today (lets a cron retry safely)")
     ap.add_argument("--quiet", action="store_true", help="print only counts (safe for public CI logs: no symbols, no e-mail address)")
     a = ap.parse_args()
     email = None
@@ -51,6 +53,12 @@ def main():
         email = True
 
     import alerts
+    if a.skip_if_done and a.slot != "auto":
+        from datetime import datetime
+        today = datetime.now(alerts.IST).strftime("%Y-%m-%d")
+        if a.slot in alerts._load_state().get(today, []):
+            print(f"slot {a.slot} already ran today ({today}) — nothing to do")
+            return
     rep = asyncio.run(alerts.run_cli(slot=a.slot, universe=a.universe, email=email))
     if "error" in rep:
         print("SCAN FAILED:", rep["error"])

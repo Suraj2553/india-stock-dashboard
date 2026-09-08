@@ -1372,7 +1372,7 @@ a{color:var(--accent)}
       <button class="scan-btn" onclick="saveAlertConfig()">💾 Save</button>
       <button class="rbtn" onclick="testAlertEmail()" style="padding:6px 12px">Send test e-mail</button>
       <button class="rbtn" onclick="go('ideas');runIdeasScan()" style="padding:6px 12px">Run a scan now</button>
-      <button class="rbtn" onclick="syncPrivate()" style="padding:6px 12px" title="Push holdings to the private GitHub repo that runs the cloud scans">⬆ Sync holdings to private repo</button>
+      <button class="rbtn" id="syncPrivateBtn" style="padding:6px 12px;display:none" onclick="syncPrivate()" title="Push holdings to the private GitHub repo that runs the cloud scans">⬆ Sync holdings to private repo</button>
       <span id="alMsg" style="font-size:11px;color:var(--muted)"></span>
     </div>
     <div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.6">
@@ -3638,6 +3638,11 @@ async function loadAlertConfig() {
     set('alTimes', (c.times || []).join(', ')); set('alMin', c.min_score); set('alCap', c.capital);
     set('alLowMax', c.low_price_max); set('alLowMin', c.low_price_min_score); chk('alOnStart', c.scan_on_start);
     chk('alAutoSync', c.auto_sync_private);
+    // The private-repo sync is optional — hide it entirely when no private repo is configured
+    const syncBtn = document.getElementById('syncPrivateBtn');
+    if(syncBtn) syncBtn.style.display = c.private_sync_available ? '' : 'none';
+    const autoLbl = document.getElementById('alAutoSync')?.closest('label');
+    if(autoLbl) autoLbl.style.display = c.private_sync_available ? '' : 'none';
     const u = document.getElementById('alUniverse'); if(u && [...u.options].some(o => o.value === c.universe)) u.value = c.universe;
     chk('alEnabled', c.enabled); chk('alEmail', c.email_enabled); chk('alWeekdays', c.weekdays_only); chk('alPortfolio', c.include_portfolio);
     try { if(c.capital) localStorage.setItem('mm_capital', String(c.capital)); } catch(_) {}

@@ -56,6 +56,10 @@ DEFAULT_CONFIG = {
     "low_price_max": 300,           # "low-price picks" section: price <= this ...
     "low_price_min_score": 75,      # ... and score >= this
     "auto_sync_private": False,     # after saving holdings, push them to the PRIVATE GitHub repo
+    # Your own private repo that runs the scheduled cloud scans, e.g.
+    # "https://github.com/<you>/market-monitor-private.git". Empty = feature hidden entirely,
+    # which is the right default for anyone who cloned the public project.
+    "private_repo": "",
 }
 
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -128,7 +132,11 @@ def public_config(cfg: dict | None = None) -> dict:
     cfg = dict(cfg or load_config())
     if cfg.get("smtp_pass"):
         cfg["smtp_pass"] = "********"
-    cfg["smtp_configured"] = bool(load_config().get("smtp_user") and load_config().get("smtp_pass") and load_config().get("email_to"))
+    full = load_config()
+    cfg["smtp_configured"] = bool(full.get("smtp_user") and full.get("smtp_pass") and full.get("email_to"))
+    # The private-repo sync only exists for someone who owns such a repo. Anyone who cloned the
+    # public project has none, so the UI hides the control instead of offering a failing button.
+    cfg["private_sync_available"] = bool(full.get("private_repo") or os.environ.get("MM_PRIVATE_REPO"))
     return cfg
 
 
