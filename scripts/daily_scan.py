@@ -1,4 +1,4 @@
-"""
+r"""
 daily_scan.py — run one scheduled scan (+ e-mail) without the dashboard open.
 
     python scripts\daily_scan.py                 # auto: picks the pending slot (08:45 / 15:45)
